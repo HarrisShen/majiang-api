@@ -42,6 +42,12 @@ class MahjongGame {
         return this.players.map((player) => player.getShow());
     }
 
+    getPlayerToAct() {
+        // Deduce decision requirement from player actions
+        // Player to discard not included
+        return [0, 1, 2, 3].filter(action => Object.values(action).some(v => v));
+    }
+
     async dumpToRedis(client) {
         if(!client.isOpen)
             await client.connect();
@@ -230,13 +236,43 @@ class MahjongGame {
         this.winner.push(actPlayer);
         this.status = 0;
     }
+
+    applyAction(action, pid, tid = null) {
+        if(action === 'discard') {
+            const discardTile = this.discard(tid);
+            if(this.checkActions(discardTile)) this.status = 2;
+            else {
+                this.nextPlayer();
+                this.drawTile();
+                if(this.checkActions()) this.status = 2;
+            }
+        } else if(action === 'pong') {
+            this.commitPong(pid);
+        } else if(action === 'kong') {
+            this.commitKong(pid);
+        } else if(action === 'win') {
+            this.commitHu(pid);
+        } else if(action === 'cancel') {
+            this.status = 1;
+            if(pid !== this.currPlayer) {
+                this.nextPlayer();
+                this.drawTile();
+                if(this.checkActions()) this.status = 2;
+            }
+        }
+    }
 }
 
 class Player {
-    constructor(hand, waste, show) {
+    constructor(hand, waste, show, bot = null) {
         this.hand = hand.map(t => parseInt(t));
         this.waste = waste.map(t => parseInt(t));
         this.show = show.map(t => parseInt(t));
+        this.bot = bot;
+    }
+
+    isBot() {
+        return this.bot !== null;
     }
 
     getHand() {
