@@ -34,6 +34,15 @@ class MahjongGame {
         });
     }
 
+    sortPlayerHand(i = null) {
+        if(i === null) i = this.currPlayer;
+        this.players[i].sortHand();
+    }
+
+    sortAllHands() {
+        [0, 1, 2, 3].forEach(i => this.players[i].sortHand());
+    }
+
     getPlayerWaste() {
         return this.players.map((player) => player.getWaste());
     }
@@ -129,6 +138,7 @@ class MahjongGame {
             if(this.getHandSize(this.currPlayer) === 14) break;
             this.nextPlayer();
         }
+        this.sortAllHands();
         this.status = 1;
     }
 
@@ -246,6 +256,7 @@ class MahjongGame {
     applyAction(action, pid, tid = null) {
         if(action === 'discard') {
             const discardTile = this.discard(tid);
+            this.sortPlayerHand();
             if(this.checkActions(discardTile)) this.status = 2;
             else {
                 this.nextPlayer();
@@ -305,9 +316,12 @@ class Player {
         return this.show;
     }
     
-    addHand(tile, sort = true) {
+    addHand(tile) {
         this.hand.push(tile);
-        if(sort) this.hand = this.hand.sort();
+    }
+
+    sortHand() {
+        this.hand.sort();
     }
 
     discard(tid) {
@@ -328,7 +342,9 @@ class Player {
     }
 
     checkKong(tile = null) {
-        return gameUtils.haveKong(this.hand, tile);
+        // check ming/an/rao(return) kong
+        return gameUtils.haveKong(this.hand, tile) || (
+            tile === null && gameUtils.haveKong(this.waste, this.hand.at(-1)));
     }
 
     makeDecision(pid, playerAction) {

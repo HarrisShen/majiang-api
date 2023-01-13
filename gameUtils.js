@@ -1,9 +1,5 @@
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
 
-const getNext = (i) => (i + 1) % 4;
-
-const getPrev = (i) => (i + 3) % 4;
-
 function getTiles() {
     let tiles = [];
     for(let i = 1; i < 4; i ++) {
