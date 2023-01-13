@@ -45,7 +45,7 @@ class MahjongGame {
     getPlayerToAct() {
         // Deduce decision requirement from player actions
         // Player to discard not included
-        return [0, 1, 2, 3].filter(action => Object.values(action).some(v => v));
+        return [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
     }
 
     async dumpToRedis(client) {
@@ -63,6 +63,7 @@ class MahjongGame {
             await client.set(playerPrefix + ':hand', this.players[i].hand.join(','));
             await client.set(playerPrefix + ':waste', this.players[i].waste.join(','));
             await client.set(playerPrefix + ':show', this.players[i].show.join(','));
+            await client.set(playerPrefix + ':bot', this.players[i].bot);
         }
     }
 
@@ -77,7 +78,7 @@ class MahjongGame {
         let winner = await client.get(gamePrefix + ':winner');
         winner = (winner !== '' ? winner.split(',') : []);
         const playerActions = await client.get(gamePrefix + ':playerActions');
-        let playerPrefix, playerTiles;
+        let playerPrefix, playerTiles, bot;
         const players = [];
         for(let i = 0; i < 4; i++) {
             playerTiles = [];
@@ -91,7 +92,8 @@ class MahjongGame {
             playerTiles.push(
                 await client.get(playerPrefix + ':show')
                     .then((s) => s !== '' ? s.split(',') : []));
-            players.push(new Player( ...playerTiles ));
+            bot = await client.get(playerPrefix + ':bot');
+            players.push(new Player( ...playerTiles, bot ));
         }
         return new MahjongGame(
             tiles.map(t => parseInt(t)), players,
@@ -105,6 +107,10 @@ class MahjongGame {
     }
 
     drawTile() {
+        if(this.tiles.length === 0) {
+            this.status = 0;
+            return;
+        }
         const tile = this.tiles.pop();
         this.players[this.currPlayer].addHand(tile);
     }
@@ -261,10 +267,14 @@ class MahjongGame {
             }
         }
     }
+
+    makeDecision(pid) {
+        return this.players[pid].makeDecision(pid, this.playerActions[pid]);
+    }
 }
 
 class Player {
-    constructor(hand, waste, show, bot = null) {
+    constructor(hand, waste, show, bot = 'no') {
         this.hand = hand.map(t => parseInt(t));
         this.waste = waste.map(t => parseInt(t));
         this.show = show.map(t => parseInt(t));
@@ -272,7 +282,7 @@ class Player {
     }
 
     isBot() {
-        return this.bot !== null;
+        return this.bot !== 'no';
     }
 
     getHand() {
@@ -319,6 +329,22 @@ class Player {
 
     checkKong(tile = null) {
         return gameUtils.haveKong(this.hand, tile);
+    }
+
+    makeDecision(pid, playerAction) {
+        if(!this.isBot()) {
+            throw new Error('non-bot player ', pid, ' selected');
+        }
+        if(playerAction['hu']) {
+            return ['hu', pid, null];
+        }
+        if(playerAction['kong']) {
+            return ['kong', pid, null];
+        }
+        if(playerAction['pong']) {
+            return ['pong', pid, null];
+        }
+        return ['discard', pid, Math.floor(Math.random() * this.hand.length)];
     }
 }
 

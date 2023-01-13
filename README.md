@@ -4,6 +4,11 @@ This is the backend of a Majiang game in developing. It is expected to work toge
 
 The package is built with Express.js.
 
+## Requirements
+Express.js
+Redis
+Socket.io
+
 ## Run locally
 
 ```

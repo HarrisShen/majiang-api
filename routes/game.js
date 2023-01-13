@@ -1,5 +1,5 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 const bodyParser = require('body-parser');
 
 const redis = require('redis');
@@ -15,17 +15,22 @@ router.use(bodyParser.json());
 /* GET initialized game info */
 router.get('/', async function(req, res, next) {
   let status = req.query.status;
-  const payload = {};
-  const players = [null,'rd','rd','rd'].map(b => new Player([], [], [], b));
+  let payload = {};
   if(status === "init") {
+    const players = ['no','rd','rd','rd'].map(b => new Player([], [], [], b));
     const mjGame = new MahjongGame([], players);
     mjGame.start();
     if(mjGame.checkActions()) mjGame.status = 2;
-    payload['tiles'] = mjGame.tiles;
-    payload['playerHands'] = mjGame.getPlayerHands();
-    payload['currPlayer'] = [mjGame.currPlayer];
-    payload['playerActions'] = mjGame.playerActions;
-    payload['status'] = mjGame.status;
+    payload = {
+      tiles: mjGame.tiles,
+      playerHands: mjGame.getPlayerHands(),
+      playerWaste: mjGame.getPlayerWaste(),
+      playerShows: mjGame.getPlayerShows(),
+      currPlayer: [mjGame.currPlayer],
+      playerActions: mjGame.playerActions,
+      winner: mjGame.winner,
+      status: mjGame.status,
+    }
     await mjGame.dumpToRedis(client);
   }
   res.send(payload);
@@ -51,22 +56,29 @@ router.put('/', async function(req, res, next) {
     status: mjGame.status,
   });
 
-  // let needAct = mjGame.getPlayerToAct(); // Now just assume at most one player need to act
-  // needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
-  // while(mjGame.players[needAct].isBot()) {
-  //   let [action, pid, tid] = mjGame.players[mjGame.currPlayer].makeDecision();
-  //   mjGame.applyAction(action, pid, tid);
-  //   res.send({
-  //     tiles: mjGame.tiles,
-  //     playerHands: mjGame.getPlayerHands(),
-  //     playerWaste: mjGame.getPlayerWaste(),
-  //     playerShows: mjGame.getPlayerShows(),
-  //     currPlayer: [mjGame.currPlayer],
-  //     playerActions: mjGame.playerActions,
-  //     winner: mjGame.winner,
-  //     status: mjGame.status,
-  //   });
-  // } 
+  console.log('after send');
+  let needAct = mjGame.getPlayerToAct(); // Now just assume at most one player need to act
+  needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
+  while(mjGame.players[needAct].isBot()) {
+    console.log(needAct);
+    await sleep(2000);
+    let [action, pid, tid] = mjGame.makeDecision(needAct);
+    mjGame.applyAction(action, pid, tid);
+    console.log(action, pid, tid);
+    await mjGame.dumpToRedis(client);
+    req.io.emit('update', {
+      tiles: mjGame.tiles,
+      playerHands: mjGame.getPlayerHands(),
+      playerWaste: mjGame.getPlayerWaste(),
+      playerShows: mjGame.getPlayerShows(),
+      currPlayer: [mjGame.currPlayer],
+      playerActions: mjGame.playerActions,
+      winner: mjGame.winner,
+      status: mjGame.status,
+    });
+    needAct = mjGame.getPlayerToAct();
+    needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
+  } 
 });
 
 router.post('/', async function(req, res, next) {
@@ -78,11 +90,15 @@ router.post('/', async function(req, res, next) {
   res.send({
     tiles: mjGame.tiles,
     playerHands: mjGame.getPlayerHands(),
+    playerWaste: mjGame.getPlayerWaste(),
+    playerShows: mjGame.getPlayerShows(),
     currPlayer: [mjGame.currPlayer],
     playerActions: mjGame.playerActions,
     winner: mjGame.winner,
     status: mjGame.status,
-  })
+  });
 });
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 module.exports = router;
