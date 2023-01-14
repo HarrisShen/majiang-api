@@ -21,16 +21,7 @@ router.get('/', async function(req, res, next) {
     const mjGame = new MahjongGame([], players);
     mjGame.start();
     if(mjGame.checkActions()) mjGame.status = 2;
-    payload = {
-      tiles: mjGame.tiles,
-      playerHands: mjGame.getPlayerHands(),
-      playerWaste: mjGame.getPlayerWaste(),
-      playerShows: mjGame.getPlayerShows(),
-      currPlayer: [mjGame.currPlayer],
-      playerActions: mjGame.playerActions,
-      winner: mjGame.winner,
-      status: mjGame.status,
-    }
+    payload = mjGame.toJSON();
     await mjGame.dumpToRedis(client);
   }
   res.send(payload);
@@ -45,16 +36,7 @@ router.put('/', async function(req, res, next) {
   console.log(mjGame.currPlayer);
   console.log(mjGame.players[mjGame.currPlayer].hand);
   await mjGame.dumpToRedis(client);
-  res.send({
-    tiles: mjGame.tiles,
-    playerHands: mjGame.getPlayerHands(),
-    playerWaste: mjGame.getPlayerWaste(),
-    playerShows: mjGame.getPlayerShows(),
-    currPlayer: [mjGame.currPlayer],
-    playerActions: mjGame.playerActions,
-    winner: mjGame.winner,
-    status: mjGame.status,
-  });
+  res.send(mjGame.toJSON());
 
   console.log('after send');
   let needAct = mjGame.getPlayerToAct(); // Now just assume at most one player need to act
@@ -66,16 +48,7 @@ router.put('/', async function(req, res, next) {
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);
     await mjGame.dumpToRedis(client);
-    req.io.emit('update', {
-      tiles: mjGame.tiles,
-      playerHands: mjGame.getPlayerHands(),
-      playerWaste: mjGame.getPlayerWaste(),
-      playerShows: mjGame.getPlayerShows(),
-      currPlayer: [mjGame.currPlayer],
-      playerActions: mjGame.playerActions,
-      winner: mjGame.winner,
-      status: mjGame.status,
-    });
+    req.io.emit('update', mjGame.toJSON());
     needAct = mjGame.getPlayerToAct();
     needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
   } 
@@ -87,16 +60,7 @@ router.post('/', async function(req, res, next) {
   const mjGame = new MahjongGame(tiles, players, 0, 1);
   if(mjGame.checkActions()) mjGame.status = 2;
   await mjGame.dumpToRedis(client);
-  res.send({
-    tiles: mjGame.tiles,
-    playerHands: mjGame.getPlayerHands(),
-    playerWaste: mjGame.getPlayerWaste(),
-    playerShows: mjGame.getPlayerShows(),
-    currPlayer: [mjGame.currPlayer],
-    playerActions: mjGame.playerActions,
-    winner: mjGame.winner,
-    status: mjGame.status,
-  });
+  res.send(mjGame.toJSON());
 });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

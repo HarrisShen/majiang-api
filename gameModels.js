@@ -1,13 +1,31 @@
 const gameUtils = require('./gameUtils');
 
 class MahjongGame {
-    constructor(tiles, players, currPlayer = 0, status = 0, winner = [], playerActions = []) {
+    constructor(
+        tiles, players, currPlayer = 0, status = 0,
+        winner = [], playerActions = [], lastAction = ''
+    ) {
         this.tiles = tiles.map((t) => parseInt(t));
         this.players = players;
         this.currPlayer = currPlayer;
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
         this.playerActions = playerActions;
+        this.lastAction = lastAction;
+    }
+
+    toJSON() {
+        return {
+            tiles: this.tiles,
+            playerHands: this.getPlayerHands(),
+            playerWaste: this.getPlayerWaste(),
+            playerShows: this.getPlayerShows(),
+            currPlayer: [this.currPlayer],
+            playerActions: this.playerActions,
+            lastAction: this.lastAction,
+            winner: this.winner,
+            status: this.status,
+        };
     }
 
     getHandSize(i) {
@@ -66,6 +84,7 @@ class MahjongGame {
         await client.set(gamePrefix + ':status', this.status);
         await client.set(gamePrefix + ':winner', this.winner.join());
         await client.set(gamePrefix + ':playerActions', serialize(this.playerActions));
+        await client.set(gamePrefix + ':lastAction', this.lastAction);
         let playerPrefix;
         for(let i = 0; i < 4; i++) {
             playerPrefix = gamePrefix + ':players:' + i;
@@ -87,6 +106,7 @@ class MahjongGame {
         let winner = await client.get(gamePrefix + ':winner');
         winner = (winner !== '' ? winner.split(',') : []);
         const playerActions = await client.get(gamePrefix + ':playerActions');
+        const lastAction = await client.get(gamePrefix + ':lastAction');
         let playerPrefix, playerTiles, bot;
         const players = [];
         for(let i = 0; i < 4; i++) {
@@ -105,9 +125,8 @@ class MahjongGame {
             players.push(new Player( ...playerTiles, bot ));
         }
         return new MahjongGame(
-            tiles.map(t => parseInt(t)), players,
-            parseInt(currPlayer), parseInt(status),
-            winner, deserialize(playerActions)
+            tiles.map(t => parseInt(t)), players, parseInt(currPlayer),
+            parseInt(status), winner, deserialize(playerActions), lastAction
         );
     }
 
@@ -122,6 +141,7 @@ class MahjongGame {
         }
         const tile = this.tiles.pop();
         this.players[this.currPlayer].addHand(tile);
+        this.lastAction = 'draw';
     }
 
     nextStep() {
@@ -254,6 +274,7 @@ class MahjongGame {
     }
 
     applyAction(action, pid, tid = null) {
+        this.lastAction = action;
         if(action === 'discard') {
             const discardTile = this.discard(tid);
             this.sortPlayerHand();
