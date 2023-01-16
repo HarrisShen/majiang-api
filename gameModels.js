@@ -147,7 +147,7 @@ class MahjongGame {
     nextStep() {
         this.nextPlayer();
         this.drawTile();
-        if(this.checkActions()) this.status = 2;
+        if(this.status !== 0 && this.checkActions()) this.status = 2;
     }
 
     start() {
@@ -279,11 +279,7 @@ class MahjongGame {
             const discardTile = this.discard(tid);
             this.sortPlayerHand();
             if(this.checkActions(discardTile)) this.status = 2;
-            else {
-                this.nextPlayer();
-                this.drawTile();
-                if(this.checkActions()) this.status = 2;
-            }
+            else this.nextStep();
         } else if(action === 'pong') {
             this.commitPong(pid);
         } else if(action === 'kong') {
@@ -292,11 +288,7 @@ class MahjongGame {
             this.commitHu(pid);
         } else if(action === 'cancel') {
             this.status = 1;
-            if(pid !== this.currPlayer) {
-                this.nextPlayer();
-                this.drawTile();
-                if(this.checkActions()) this.status = 2;
-            }
+            if(pid !== this.currPlayer) this.nextStep();
         }
     }
 

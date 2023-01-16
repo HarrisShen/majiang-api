@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bodyParser = require('body-parser');
 
-const redis = require('redis');
-const client = redis.createClient();
+const gameClient = require('redis').createClient();
 
 const gameModel = require('../gameModels');
 const MahjongGame = gameModel.MahjongGame;
@@ -16,29 +15,35 @@ router.use(bodyParser.json());
 router.get('/', async function(req, res, next) {
   let status = req.query.status;
   let payload = {};
+  if(!req.session.gameID) {
+    req.session.gameID = '1';
+  }
+  payload.gameID = req.session.gameID;
+  console.log(payload.gameID);
   if(status === "init") {
     const players = ['no','rd','rd','rd'].map(b => new Player([], [], [], b));
     const mjGame = new MahjongGame([], players);
     mjGame.start();
     if(mjGame.checkActions()) mjGame.status = 2;
-    payload = mjGame.toJSON();
-    await mjGame.dumpToRedis(client);
+    payload.gameState = mjGame.toJSON();
+    await mjGame.dumpToRedis(gameClient);
   }
   res.send(payload);
 });
 
 /* PUT - receiving and responding to player actions */
 router.put('/', async function(req, res, next) {
-  const mjGame = await MahjongGame.loadFromRedis(client);
+  const mjGame = await MahjongGame.loadFromRedis(gameClient);
   mjGame.applyAction(
     req.body['action'], req.body['pid'],
     req.body['action'] === 'discard'? req.body['tid'] : null);
   console.log(mjGame.currPlayer);
   console.log(mjGame.players[mjGame.currPlayer].hand);
-  await mjGame.dumpToRedis(client);
-  res.send(mjGame.toJSON());
+  await mjGame.dumpToRedis(gameClient);
+  res.send({
+    gameState: mjGame.toJSON()
+  });
 
-  console.log('after send');
   let needAct = mjGame.getPlayerToAct(); // Now just assume at most one player need to act
   needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
   while(mjGame.players[needAct].isBot()) {
@@ -47,8 +52,10 @@ router.put('/', async function(req, res, next) {
     let [action, pid, tid] = mjGame.makeDecision(needAct);
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);
-    await mjGame.dumpToRedis(client);
-    req.io.emit('update', mjGame.toJSON());
+    await mjGame.dumpToRedis(gameClient);
+    req.io.emit('update', {
+      gameState: mjGame.toJSON()
+    });
     needAct = mjGame.getPlayerToAct();
     needAct = needAct.length === 0? mjGame.currPlayer : needAct[0];
   } 
@@ -59,8 +66,10 @@ router.post('/', async function(req, res, next) {
   const tiles = req.body.tiles.reverse();
   const mjGame = new MahjongGame(tiles, players, 0, 1);
   if(mjGame.checkActions()) mjGame.status = 2;
-  await mjGame.dumpToRedis(client);
-  res.send(mjGame.toJSON());
+  await mjGame.dumpToRedis(gameClient);
+  res.send({
+    gameState: mjGame.toJSON()
+  });
 });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

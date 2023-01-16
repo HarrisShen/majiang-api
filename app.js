@@ -4,12 +4,25 @@ const { Server } = require('socket.io');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
+const session = require('express-session');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const gameRouter = require('./routes/game');
 
 const app = express();
+
+const redis = require('redis');
+const client = redis.createClient({ legacyMode: true });
+client.connect().catch(console.error);
+const RedisStore = require('connect-redis')(session);
+
+app.use(session({
+  resave: false, // don't save session if unmodified
+  saveUninitialized: false, // don't create session until something stored
+  secret: 'keyboard cat',
+  store: new RedisStore({client: client})
+}));
 
 const io = new Server();
 
