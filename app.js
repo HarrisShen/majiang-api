@@ -6,40 +6,70 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const session = require('express-session');
 
-const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
-const gameRouter = require('./routes/game');
+// const indexRouter = require('./routes/index');
+// const usersRouter = require('./routes/users');
+// const gameRouter = require('./routes/game');
+
+const { startGame, act, continueGame } = require('./gameRoutine');
 
 const app = express();
 
-const redis = require('redis');
-const client = redis.createClient({ legacyMode: true });
-client.connect().catch(console.error);
-const RedisStore = require('connect-redis')(session);
+// const redis = require('redis');
+// const client = redis.createClient({ legacyMode: true });
+// client.connect().catch(console.error);
+// const RedisStore = require('connect-redis')(session);
 
-app.use(session({
+const sessionMiddleware = session({
   resave: false, // don't save session if unmodified
   saveUninitialized: false, // don't create session until something stored
   secret: 'keyboard cat',
-  store: new RedisStore({client: client})
-}));
+});
+
+app.use(sessionMiddleware);
 
 const io = new Server();
 
-io.on('connect', (socket) => {
-  socket.on('connect', () => {
-    console.lof('SOCKET connected');
-  });
-})
+const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
 
-app.use(function(req, res, next) {
-  req.io = io;
-  return next();
+io.use(wrap(sessionMiddleware));
+
+io.on('connection', (socket) => {
+  const req = socket.request;
+
+  socket.onAny((event, ...args) => {
+    console.log(event, args);
+  });
+
+  socket.on('start', async (callback) => {
+    console.log('start');
+    const data = await startGame();
+    const gameID = data.gameID;
+    console.log(gameID);
+    req.session.gameID = gameID;
+    callback(data);
+  });
+
+  socket.on('discard', async (action, pid, tid) => {
+    console.log('discard');
+    const gameID = req.session.gameID;
+    const data = await act(gameID, action, pid, tid);
+    socket.emit('update', data);
+    await continueGame(gameID, socket);
+  });
+
+  socket.on('action', async (action, pid) => {
+    console.log(action);
+    const gameID = req.session.gameID;
+    const data = await act(gameID, action, pid, null);
+    socket.emit('update', data);
+    await continueGame(gameID, socket);
+  })
 });
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
-app.use('/game', gameRouter);
+// app.use(function(req, res, next) {
+//   req.io = io;
+//   return next();
+// });
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -50,6 +80,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// app.use('/', indexRouter);
+// app.use('/users', usersRouter);
+// app.use('/game', gameRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

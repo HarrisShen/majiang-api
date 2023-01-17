@@ -1,4 +1,5 @@
 const gameUtils = require('./gameUtils');
+const { v4: uuidv4 } = require('uuid');
 
 class MahjongGame {
     constructor(
@@ -72,13 +73,14 @@ class MahjongGame {
     getPlayerToAct() {
         // Deduce decision requirement from player actions
         // Player to discard not included
-        return [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
+        const actPlayer = [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
+        return actPlayer.length ? actPlayer : [this.currPlayer];
     }
 
-    async dumpToRedis(client) {
-        if(!client.isOpen)
-            await client.connect();
-        const gamePrefix = 'game';
+    async dumpToRedis(client, gameID = null) {
+        if(!client.isOpen) await client.connect();
+        if(gameID === null) gameID = uuidv4();
+        const gamePrefix = 'game:' + gameID;
         await client.set(gamePrefix + ':tiles', this.tiles.join());
         await client.set(gamePrefix + ':currPlayer', this.currPlayer);
         await client.set(gamePrefix + ':status', this.status);
@@ -93,12 +95,13 @@ class MahjongGame {
             await client.set(playerPrefix + ':show', this.players[i].show.join(','));
             await client.set(playerPrefix + ':bot', this.players[i].bot);
         }
+        return gameID;
     }
 
-    static async loadFromRedis(client) {
+    static async loadFromRedis(client, gameID) {
         if(!client.isOpen)
             await client.connect();
-        const gamePrefix = 'game';
+        const gamePrefix = 'game:' + gameID;
         let tiles = await client.get(gamePrefix + ':tiles');
         tiles = (tiles !== '' ? tiles.split(',') : []);
         const currPlayer = await client.get(gamePrefix + ':currPlayer');
