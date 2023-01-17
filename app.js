@@ -37,30 +37,21 @@ io.on('connection', (socket) => {
   const req = socket.request;
 
   socket.onAny((event, ...args) => {
-    console.log(event, args);
+    console.log('Event:', event, args);
   });
 
-  socket.on('start', async (callback) => {
+  socket.on('start', async () => {
     console.log('start');
     const data = await startGame();
     const gameID = data.gameID;
     console.log(gameID);
     req.session.gameID = gameID;
-    callback(data);
+    socket.emit('update', data);
   });
 
-  socket.on('discard', async (action, pid, tid) => {
-    console.log('discard');
+  socket.on('action', async (action, pid, tid) => {
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
-    socket.emit('update', data);
-    await continueGame(gameID, socket);
-  });
-
-  socket.on('action', async (action, pid) => {
-    console.log(action);
-    const gameID = req.session.gameID;
-    const data = await act(gameID, action, pid, null);
     socket.emit('update', data);
     await continueGame(gameID, socket);
   })
