@@ -1,5 +1,4 @@
 const gameClient = require('redis').createClient();
-const { v4: uuidv4 } = require('uuid');
 
 const gameModel = require('./gameModels');
 const MahjongGame = gameModel.MahjongGame;
@@ -35,7 +34,7 @@ async function continueGame(gameID, socket) {
   let needAct = mjGame.getPlayerToAct()[0]; // Now just assume at most one player need to act
   while(needAct !== -1 && mjGame.players[needAct].isBot()) {
     console.log(needAct);
-    await sleep(1);
+    await sleep(1000);
     let [action, pid, tid] = mjGame.makeDecision(needAct);
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);

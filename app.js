@@ -13,6 +13,7 @@ const { nanoid } = require('nanoid');
 // const gameRouter = require('./routes/game');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
+const { table } = require('console');
 
 const app = express();
 
@@ -40,6 +41,19 @@ io.on('connection', (socket) => {
 
   socket.onAny((event, ...args) => {
     console.log('Event:', event, args);
+  });
+
+  socket.on('table:create', (callback) => {
+    console.log('create table');
+    const tableID = nanoid(4);
+    req.session.tableID = tableID;
+    callback({tableID: tableID});
+  });
+
+  socket.on('table:leave', (callback) => {
+    console.log('leave table');
+    req.session.tableID = '';
+    callback({tableID: req.session.tableID});
   });
 
   socket.on('start', async () => {
