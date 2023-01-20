@@ -33,9 +33,9 @@ async function act(gameID, action, pid, tid) {
 async function continueGame(gameID, socket) {
   const mjGame = await MahjongGame.loadFromRedis(gameClient, gameID);
   let needAct = mjGame.getPlayerToAct()[0]; // Now just assume at most one player need to act
-  while(mjGame.players[needAct].isBot()) {
+  while(needAct !== -1 && mjGame.players[needAct].isBot()) {
     console.log(needAct);
-    await sleep(2000);
+    await sleep(1);
     let [action, pid, tid] = mjGame.makeDecision(needAct);
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);

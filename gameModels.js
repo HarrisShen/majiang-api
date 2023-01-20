@@ -74,7 +74,9 @@ class MahjongGame {
         // Deduce decision requirement from player actions
         // Player to discard not included
         const actPlayer = [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
-        return actPlayer.length ? actPlayer : [this.currPlayer];
+        if(actPlayer.length) return actPlayer;
+        if(this.status === 1) return [this.currPlayer];
+        return [-1];
     }
 
     async dumpToRedis(client, gameID = null) {
@@ -150,7 +152,8 @@ class MahjongGame {
     nextStep() {
         this.nextPlayer();
         this.drawTile();
-        if(this.status !== 0 && this.checkActions()) this.status = 2;
+        if(this.status === 0) return;
+        if(this.checkActions()) this.status = 2;
     }
 
     start() {
