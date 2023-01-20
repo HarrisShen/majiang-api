@@ -2,8 +2,6 @@
 
 This is the backend of a Majiang game in developing. It is expected to work together with the frontend REACT app, which is used for presenting the game info and user interface.
 
-The package is built with Express.js.
-
 ## Requirements
 Express.js
 Redis

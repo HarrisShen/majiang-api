@@ -6,6 +6,8 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const session = require('express-session');
 
+const { nanoid } = require('nanoid');
+
 // const indexRouter = require('./routes/index');
 // const usersRouter = require('./routes/users');
 // const gameRouter = require('./routes/game');
@@ -46,6 +48,12 @@ io.on('connection', (socket) => {
     const gameID = data.gameID;
     console.log(gameID);
     req.session.gameID = gameID;
+    if(!req.session.playerID) {
+      const playerID = nanoid(8);
+      data.playerID = playerID;
+      req.session.playerID = playerID;
+    }
+    console.log(req.session.playerID);
     socket.emit('update', data);
   });
 
@@ -54,7 +62,7 @@ io.on('connection', (socket) => {
     const data = await act(gameID, action, pid, tid);
     socket.emit('update', data);
     await continueGame(gameID, socket);
-  })
+  });
 });
 
 // app.use(function(req, res, next) {
