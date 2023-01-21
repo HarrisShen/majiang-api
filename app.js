@@ -13,6 +13,7 @@ const { nanoid } = require('nanoid');
 // const gameRouter = require('./routes/game');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
+const { createTable, tableExists } = require('./controller');
 
 const app = express();
 
@@ -42,17 +43,32 @@ io.on('connection', (socket) => {
     console.log('Event:', event, args);
   });
 
-  socket.on('table:create', (callback) => {
+  socket.on('table:create', async (callback) => {
     console.log('create table');
-    const tableID = nanoid(4);
+    const tableID = await createTable();
     req.session.tableID = tableID;
+    socket.join(tableID);
+    console.log('table created: ' + tableID);
     callback({tableID: tableID});
   });
 
   socket.on('table:leave', (callback) => {
     console.log('leave table');
     req.session.tableID = '';
+    socket.leave(tableID);
     callback({tableID: req.session.tableID});
+  });
+
+  socket.on('table:join', async (tableID, callback) => {
+    console.log('joining table');
+    if (await tableExists(tableID)) {
+      req.session.tableID = tableID;
+      socket.join(tableID);
+      console.log('table:' + tableID + ' joined');
+      callback({status: 0});
+    } else {
+      callback({error: 'Table "' + tableID + '" not found'});
+    }
   });
 
   socket.on('start', async () => {
