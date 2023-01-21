@@ -13,7 +13,7 @@ const { nanoid } = require('nanoid');
 // const gameRouter = require('./routes/game');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
-const { createTable, tableExists } = require('./controller');
+const { createTable, tableExists, addPlayer, getPlayers } = require('./controller');
 
 const app = express();
 
@@ -49,7 +49,11 @@ io.on('connection', (socket) => {
     req.session.tableID = tableID;
     socket.join(tableID);
     console.log('table created: ' + tableID);
-    callback({tableID: tableID});
+    if(!req.session.playerID) {
+      req.session.playerID = 'User-' + nanoid(8);
+    }
+    await addPlayer(tableID, req.session.playerID);
+    callback({tableID: tableID, players: [req.session.playerID]});
   });
 
   socket.on('table:leave', (callback) => {
@@ -63,9 +67,16 @@ io.on('connection', (socket) => {
     console.log('joining table');
     if (await tableExists(tableID)) {
       req.session.tableID = tableID;
+      if(!req.session.playerID) {
+        req.session.playerID = 'User-' + nanoid(8);
+      }
+      await addPlayer(tableID, req.session.playerID);
       socket.join(tableID);
+      const players = await getPlayers(tableID);
+      console.log(players);
       console.log('table:' + tableID + ' joined');
-      callback({status: 0});
+      io.to(tableID).emit('table:update', {players: players});
+      callback({players: players});
     } else {
       callback({error: 'Table "' + tableID + '" not found'});
     }
@@ -77,11 +88,6 @@ io.on('connection', (socket) => {
     const gameID = data.gameID;
     console.log(gameID);
     req.session.gameID = gameID;
-    if(!req.session.playerID) {
-      const playerID = nanoid(8);
-      data.playerID = playerID;
-      req.session.playerID = playerID;
-    }
     console.log(req.session.playerID);
     socket.emit('update', data);
   });
