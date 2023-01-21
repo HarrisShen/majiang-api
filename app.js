@@ -13,7 +13,6 @@ const { nanoid } = require('nanoid');
 // const gameRouter = require('./routes/game');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
-const { table } = require('console');
 
 const app = express();
 

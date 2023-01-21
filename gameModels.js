@@ -73,9 +73,8 @@ class MahjongGame {
     getPlayerToAct() {
         // Deduce decision requirement from player actions
         // Player to discard not included
-        const actPlayer = [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
-        if(actPlayer.length) return actPlayer;
         if(this.status === 1) return [this.currPlayer];
+        if(this.status === 2) return [0, 1, 2, 3].filter(i => Object.values(this.playerActions[i]).some(v => v));
         return [-1];
     }
 
