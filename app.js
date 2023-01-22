@@ -13,7 +13,7 @@ const { nanoid } = require('nanoid');
 // const gameRouter = require('./routes/game');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
-const { createTable, tableExists, addPlayer, getPlayers } = require('./controller');
+const { createTable, tableExists, addPlayer, getPlayers, removePlayer } = require('./controller');
 
 const app = express();
 
@@ -56,10 +56,16 @@ io.on('connection', (socket) => {
     callback({tableID: tableID, players: [req.session.playerID]});
   });
 
-  socket.on('table:leave', (callback) => {
+  socket.on('table:leave', async (callback) => {
     console.log('leave table');
+    const tableID = req.session.tableID;
     req.session.tableID = '';
+    await removePlayer(tableID, req.session.playerID);
     socket.leave(tableID);
+    const players = await getPlayers(tableID);
+    console.log(players);
+    console.log('table:' + tableID + ' left');
+    io.to(tableID).emit('table:update', {players: players});
     callback({tableID: req.session.tableID});
   });
 

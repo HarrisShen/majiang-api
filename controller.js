@@ -18,13 +18,18 @@ async function tableExists(tableID) {
 async function addPlayer(tableID, playerID) {
   if (!client.isOpen) await client.connect();
   await client.set('player:' + playerID + ':table', tableID);
-  await client.rPush('table:' + tableID + ':players:', playerID);
+  await client.rPush('table:' + tableID + ':players', playerID);
+}
+
+async function removePlayer(tableID, playerID) {
+  if (!client.isOpen) await client.connect();
+  await client.lRem('table:' + tableID + ':players', 1, playerID);
 }
 
 async function getPlayers(tableID) {
   if (!client.isOpen) await client.connect();
-  const players = await client.lRange('table:' + tableID + ':players:', 0, -1);
+  const players = await client.lRange('table:' + tableID + ':players', 0, -1);
   return players;
 }
 
-module.exports = { createTable, tableExists, addPlayer, getPlayers };
+module.exports = { createTable, tableExists, addPlayer, removePlayer, getPlayers };
