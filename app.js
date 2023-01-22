@@ -8,10 +8,6 @@ const session = require('express-session');
 
 const { nanoid } = require('nanoid');
 
-// const indexRouter = require('./routes/index');
-// const usersRouter = require('./routes/users');
-// const gameRouter = require('./routes/game');
-
 const { startGame, act, continueGame } = require('./gameRoutine');
 const { createTable, tableExists, addPlayer, getPlayers, removePlayer } = require('./controller');
 
@@ -106,11 +102,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// app.use(function(req, res, next) {
-//   req.io = io;
-//   return next();
-// });
-
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -120,10 +111,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// app.use('/', indexRouter);
-// app.use('/users', usersRouter);
-// app.use('/game', gameRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
