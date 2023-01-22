@@ -17,6 +17,10 @@ async function tableExists(tableID) {
 
 async function addPlayer(tableID, playerID) {
   if (!client.isOpen) await client.connect();
+  if (!(await tableExists(tableID))) throw Error('Table "' + tableID + '" not found');
+  const tableSize = await client.lLen('table:' + tableID + ':players');
+  if (tableSize === 4) throw Error('Table "' + tableID + '" is full');
+  
   await client.set('player:' + playerID + ':table', tableID);
   await client.rPush('table:' + tableID + ':players', playerID);
 }

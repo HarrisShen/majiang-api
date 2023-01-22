@@ -67,24 +67,26 @@ io.on('connection', (socket) => {
 
   socket.on('table:join', async (tableID, callback) => {
     console.log('joining table');
-    if (await tableExists(tableID)) {
-      req.session.tableID = tableID;
-      if(!req.session.playerID) {
-        req.session.playerID = 'User-' + nanoid(8);
-      }
-      await addPlayer(tableID, req.session.playerID);
-      socket.join(tableID);
-      const players = await getPlayers(tableID);
-      console.log(players);
-      console.log('table:' + tableID + ' joined');
-      io.to(tableID).emit('table:update', {players: players});
-      callback({players: players});
-    } else {
-      callback({error: 'Table "' + tableID + '" not found'});
+    if(!req.session.playerID) {
+      req.session.playerID = 'User-' + nanoid(8);
     }
+    try {
+      await addPlayer(tableID, req.session.playerID);
+    } catch (error) {
+      console.log(error);
+      callback({error: error.message});
+      return;
+    }
+    req.session.tableID = tableID;
+    socket.join(tableID);
+    const players = await getPlayers(tableID);
+    console.log(players);
+    console.log('table:' + tableID + ' joined');
+    io.to(tableID).emit('table:update', {players: players});
+    callback({players: players});
   });
 
-  socket.on('start', async () => {
+  socket.on('game:start', async () => {
     console.log('start');
     const data = await startGame();
     const gameID = data.gameID;
@@ -94,7 +96,7 @@ io.on('connection', (socket) => {
     socket.emit('update', data);
   });
 
-  socket.on('action', async (action, pid, tid) => {
+  socket.on('game:action', async (action, pid, tid) => {
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
     socket.emit('update', data);
