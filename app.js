@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
     try {
       await addPlayer(tableID, req.session.playerID);
     } catch (error) {
-      console.log(error);
+      console.log(error.message);
       callback({error: error.message});
       return;
     }
