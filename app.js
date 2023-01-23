@@ -32,6 +32,14 @@ const wrap = middleware => (socket, next) => middleware(socket.request, {}, next
 
 io.use(wrap(sessionMiddleware));
 
+io.use((socket, next) => {
+  const req = socket.request;
+  if(!req.session.playerID) {
+    req.session.playerID = 'User-' + nanoid(8);
+  }
+  next();
+});
+
 io.on('connection', (socket) => {
   const req = socket.request;
 
@@ -45,9 +53,6 @@ io.on('connection', (socket) => {
     req.session.tableID = tableID;
     socket.join(tableID);
     console.log('table created: ' + tableID);
-    if(!req.session.playerID) {
-      req.session.playerID = 'User-' + nanoid(8);
-    }
     await addPlayer(tableID, req.session.playerID);
     callback({tableID: tableID, players: [req.session.playerID]});
   });
