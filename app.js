@@ -9,7 +9,7 @@ const session = require('express-session');
 const { nanoid } = require('nanoid');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
-const { createTable, tableExists, addPlayer, getPlayers, removePlayer } = require('./controller');
+const { createTable, addPlayer, getPlayers, removePlayer } = require('./controller');
 
 const app = express();
 
@@ -36,6 +36,7 @@ io.use((socket, next) => {
   const req = socket.request;
   if(!req.session.playerID) {
     req.session.playerID = 'User-' + nanoid(8);
+    socket.emit('player:init', {self: req.session.playerID});
   }
   next();
 });
@@ -91,6 +92,11 @@ io.on('connection', (socket) => {
     callback({players: players});
   });
 
+  socket.on('game:ready', async (isReady, callback) => {
+    console.log('readiness change');
+    callback({ready : !isReady});
+  });
+
   socket.on('game:start', async () => {
     console.log('start');
     const data = await startGame();
@@ -98,13 +104,13 @@ io.on('connection', (socket) => {
     console.log(gameID);
     req.session.gameID = gameID;
     console.log(req.session.playerID);
-    socket.emit('update', data);
+    socket.emit('game:update', data);
   });
 
   socket.on('game:action', async (action, pid, tid) => {
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
-    socket.emit('update', data);
+    socket.emit('game:update', data);
     await continueGame(gameID, socket);
   });
 });
