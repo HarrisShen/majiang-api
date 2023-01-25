@@ -9,13 +9,14 @@ const session = require('express-session');
 const { nanoid } = require('nanoid');
 
 const { startGame, act, continueGame } = require('./gameRoutine');
-const { createTable, addPlayer, getPlayers, removePlayer } = require('./controller');
+const { RedisManager } = require('./redisUtils');
 
 const app = express();
 
-// const redis = require('redis');
-// const client = redis.createClient({ legacyMode: true });
-// client.connect().catch(console.error);
+const redis = require('redis');
+const client = redis.createClient();
+client.connect().catch(console.error);
+const redisMng = new RedisManager(client);
 // const RedisStore = require('connect-redis')(session);
 
 const sessionMiddleware = session({
@@ -50,11 +51,11 @@ io.on('connection', (socket) => {
 
   socket.on('table:create', async (callback) => {
     console.log('create table');
-    const tableID = await createTable();
+    const tableID = await redisMng.createTable();
     req.session.tableID = tableID;
     socket.join(tableID);
     console.log('table created: ' + tableID);
-    await addPlayer(tableID, req.session.playerID);
+    await redisMng.addPlayer(tableID, req.session.playerID);
     callback({tableID: tableID, players: [req.session.playerID]});
   });
 
@@ -62,9 +63,9 @@ io.on('connection', (socket) => {
     console.log('leave table');
     const tableID = req.session.tableID;
     req.session.tableID = '';
-    await removePlayer(tableID, req.session.playerID);
+    await redisMng.removePlayer(tableID, req.session.playerID);
     socket.leave(tableID);
-    const players = await getPlayers(tableID);
+    const players = await redisMng.getPlayers(tableID);
     console.log(players);
     console.log('table:' + tableID + ' left');
     io.to(tableID).emit('table:update', {players: players});
@@ -77,7 +78,7 @@ io.on('connection', (socket) => {
       req.session.playerID = 'User-' + nanoid(8);
     }
     try {
-      await addPlayer(tableID, req.session.playerID);
+      await redisMng.addPlayer(tableID, req.session.playerID);
     } catch (error) {
       console.log(error.message);
       callback({error: error.message});
@@ -85,7 +86,7 @@ io.on('connection', (socket) => {
     }
     req.session.tableID = tableID;
     socket.join(tableID);
-    const players = await getPlayers(tableID);
+    const players = await redisMng.getPlayers(tableID);
     console.log(players);
     console.log('table:' + tableID + ' joined');
     io.to(tableID).emit('table:update', {players: players});
