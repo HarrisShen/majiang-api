@@ -39,7 +39,7 @@ async function continueGame(gameID, socket) {
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);
     await mjGame.dumpToRedis(gameClient, gameID);
-    socket.emit('update', {
+    socket.emit('game:update', {
       gameID: gameID,
       gameState: mjGame.toJSON()
     });

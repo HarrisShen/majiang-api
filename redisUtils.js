@@ -60,6 +60,15 @@ class RedisManager {
       return r === '1';
     }));
   }
+
+  async bindGame(tableID, gameID) {
+    await this.client.set('table:' + tableID + ':game', gameID);
+  }
+
+  async fetchGame(tableID) {
+    const gameID = await this.client.get('table:' + tableID + ':game');
+    return gameID;
+  }
 }
 
 module.exports = { RedisManager };

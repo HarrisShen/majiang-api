@@ -65,6 +65,7 @@ io.on('connection', (socket) => {
       const gameID = data.gameID;
       console.log(gameID);
       req.session.gameID = gameID;
+      await redisMng.bindGame(tableID, gameID);
       console.log(req.session.playerID);
       io.to(tableID).emit('game:update', data);
       socket.emit('game:update', data);
@@ -85,6 +86,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game:action', async (action, pid, tid) => {
+    if(!req.session.gameID) {
+      req.session.gameID = await redisMng.fetchGame(req.session.tableID);
+    }
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
     io.to(req.session.tableID).emit('game:update', data);
