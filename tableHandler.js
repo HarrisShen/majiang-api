@@ -1,6 +1,6 @@
 module.exports = (io, socket, redisMng) => {
   const req = socket.request;
-  
+
   socket.on('table:create', async (callback) => {
     console.log('create table');
     const tableID = await redisMng.createTable();
@@ -22,9 +22,13 @@ module.exports = (io, socket, redisMng) => {
     await redisMng.removePlayer(tableID, req.session.playerID);
     socket.leave(tableID);
     const players = await redisMng.getPlayers(tableID);
+    const playerReady = await redisMng.getPlayerReady(tableID);
     console.log(players);
     console.log('table:' + tableID + ' left');
-    io.to(tableID).emit('table:update', {players: players});
+    io.to(tableID).emit('table:update', {
+      players: players,
+      playerReady: playerReady
+    });
     callback({tableID: req.session.tableID});
   });
 
