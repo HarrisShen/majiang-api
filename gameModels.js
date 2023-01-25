@@ -21,7 +21,7 @@ class MahjongGame {
             playerHands: this.getPlayerHands(),
             playerWaste: this.getPlayerWaste(),
             playerShows: this.getPlayerShows(),
-            currPlayer: [this.currPlayer],
+            currPlayer: this.currPlayer,
             playerActions: this.playerActions,
             lastAction: this.lastAction,
             winner: this.winner,
@@ -82,7 +82,7 @@ class MahjongGame {
         if(!client.isOpen) await client.connect();
         if(gameID === null) gameID = uuidv4();
         const gamePrefix = 'game:' + gameID;
-        await client.set(gamePrefix + ':tiles', this.tiles.join());
+        await client.set(gamePrefix + ':tiles', this.tiles.join(','));
         await client.set(gamePrefix + ':currPlayer', this.currPlayer);
         await client.set(gamePrefix + ':status', this.status);
         await client.set(gamePrefix + ':winner', this.winner.join());

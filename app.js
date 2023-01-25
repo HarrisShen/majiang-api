@@ -87,6 +87,7 @@ io.on('connection', (socket) => {
   socket.on('game:action', async (action, pid, tid) => {
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
+    io.to(req.session.tableID).emit('game:update', data);
     socket.emit('game:update', data);
     await continueGame(gameID, socket);
   });
