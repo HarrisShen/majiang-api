@@ -56,7 +56,11 @@ io.on('connection', (socket) => {
     socket.join(tableID);
     console.log('table created: ' + tableID);
     await redisMng.addPlayer(tableID, req.session.playerID);
-    callback({tableID: tableID, players: [req.session.playerID]});
+    callback({
+      tableID: tableID,
+      players: [req.session.playerID],
+      playerReady: [false],
+    });
   });
 
   socket.on('table:leave', async (callback) => {
@@ -87,15 +91,25 @@ io.on('connection', (socket) => {
     req.session.tableID = tableID;
     socket.join(tableID);
     const players = await redisMng.getPlayers(tableID);
+    const playerReady = await redisMng.getPlayerReady(tableID);
     console.log(players);
     console.log('table:' + tableID + ' joined');
-    io.to(tableID).emit('table:update', {players: players});
-    callback({players: players});
+    const data = {
+      players: players,
+      playerReady: playerReady,
+    }
+    io.to(tableID).emit('table:update', data);
+    callback(data);
   });
 
-  socket.on('game:ready', async (isReady, callback) => {
-    console.log('readiness change');
-    callback({ready : !isReady});
+  socket.on('game:ready', async (callback) => {
+    const tableID = req.session.tableID
+    const playerID = req.session.playerID;
+    console.log(playerID + ': readiness change');
+    redisMng.changePlayerReady(playerID);
+    const playerReady = await redisMng.getPlayerReady(tableID);
+    io.to(tableID).emit('table:update', {playerReady: playerReady});
+    callback({playerReady: playerReady});
   });
 
   socket.on('game:start', async () => {
