@@ -6,9 +6,9 @@ const Player = gameModel.Player;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function startGame() {
+async function startGame(botType) {
   const payload = {};
-  const players = ['no','rd','rd','rd'].map(b => new Player([], [], [], b));
+  const players = botType.map(b => new Player([], [], [], b));
   const mjGame = new MahjongGame([], players);
   mjGame.start();
   if(mjGame.checkActions()) mjGame.status = 2;

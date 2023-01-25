@@ -53,14 +53,25 @@ io.on('connection', (socket) => {
 
   registerTableHandler(io, socket, redisMng);
 
-  socket.on('game:ready', async (callback) => {
+  socket.on('game:ready', async () => {
     const tableID = req.session.tableID
     const playerID = req.session.playerID;
     console.log(playerID + ': readiness change');
     redisMng.changePlayerReady(playerID);
     const playerReady = await redisMng.getPlayerReady(tableID);
-    io.to(tableID).emit('table:update', {playerReady: playerReady});
-    callback({playerReady: playerReady});
+    if (playerReady.length === 4 && playerReady.every(x => x)) {
+      console.log('game start');
+      const data = await startGame(Array(4).fill('no'));
+      const gameID = data.gameID;
+      console.log(gameID);
+      req.session.gameID = gameID;
+      console.log(req.session.playerID);
+      io.to(tableID).emit('game:update', data);
+      socket.emit('game:update', data);
+    } else {
+      io.to(tableID).emit('table:update', {playerReady: playerReady});
+      socket.emit('table:update', {playerReady: playerReady});      
+    }
   });
 
   socket.on('game:start', async () => {
