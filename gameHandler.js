@@ -1,5 +1,21 @@
 const { startGame, act, continueGame } = require('./gameRoutine');
 
+function cleanPayload(payload, playerID, players) {
+  // hiding information of others from specified player
+  const newPayload = JSON.parse(JSON.stringify(payload));
+  const idx = players.indexOf(playerID);
+  const gameState = newPayload.gameState;
+  gameState.tiles = gameState.tiles.length;
+  let handLength;
+  for (let i = 0; i < 4; i++) {
+    if (i === idx) continue;
+    handLength = gameState.playerHands[i].length;
+    gameState.playerHands[i] = Array(handLength).fill(0);
+  }
+  newPayload.gameState = gameState;
+  return newPayload;
+}
+
 module.exports = (io, socket, redisMng) => {
   const req = socket.request;
 
@@ -25,8 +41,10 @@ module.exports = (io, socket, redisMng) => {
       console.log(gameID);
       await redisMng.bindGame(tableID, gameID);
       console.log(req.session.playerID);
-      io.to(tableID).emit('game:update', payload);
-      socket.emit('game:update', payload);
+      players.forEach(p => io.in(p).emit(
+        'game:update',
+        cleanPayload(payload, p, players)
+      ));
     }
     payload = {
       source: 'ready',
@@ -42,10 +60,13 @@ module.exports = (io, socket, redisMng) => {
   });
 
   socket.on('game:action', async (action, pid, tid) => {
+    const players = await redisMng.getPlayers(req.session.tableID);
     const gameID = req.session.gameID;
-    const data = await act(gameID, action, pid, tid);
-    io.to(req.session.tableID).emit('game:update', data);
-    socket.emit('game:update', data);
+    const payload = await act(gameID, action, pid, tid);
+    players.forEach(p => io.in(p).emit(
+      'game:update', 
+      cleanPayload(payload, p, players)
+    ));
     await continueGame(gameID, socket);
   });
 };
