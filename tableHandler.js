@@ -60,4 +60,4 @@ module.exports = (io, socket, redisMng) => {
     io.to(tableID).emit('table:update', data);
     callback(data);
   });
-}
+};
