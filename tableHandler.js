@@ -1,14 +1,15 @@
 module.exports = (io, socket, redisMng) => {
   const req = socket.request;
 
-  socket.on('table:create', async (callback) => {
+  socket.on('table:create', async () => {
     console.log('create table');
     const tableID = await redisMng.createTable();
     req.session.tableID = tableID;
     socket.join(tableID);
     console.log('table created: ' + tableID);
     await redisMng.addPlayer(tableID, req.session.playerID);
-    callback({
+    socket.emit('table:update', {
+      source: 'create',
       tableID: tableID,
       players: [req.session.playerID],
       playerReady: [false],
@@ -26,10 +27,11 @@ module.exports = (io, socket, redisMng) => {
     console.log(players);
     console.log('table:' + tableID + ' left');
     io.to(tableID).emit('table:update', {
+      source: 'leave',
       players: players,
       playerReady: playerReady
     });
-    callback({tableID: req.session.tableID});
+    callback({tableID: ''});
   });
 
   socket.on('table:join', async (tableID, callback) => {
@@ -51,6 +53,7 @@ module.exports = (io, socket, redisMng) => {
     console.log(players);
     console.log('table:' + tableID + ' joined');
     const data = {
+      source: 'join',
       players: players,
       playerReady: playerReady,
     }

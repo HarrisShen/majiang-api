@@ -57,38 +57,41 @@ io.on('connection', (socket) => {
     const tableID = req.session.tableID
     const playerID = req.session.playerID;
     console.log(playerID + ': readiness change');
-    redisMng.changePlayerReady(playerID);
-    const playerReady = await redisMng.getPlayerReady(tableID);
+    await redisMng.changePlayerReady(playerID);
+    let playerReady = await redisMng.getPlayerReady(tableID);
+    let payload = {};
     if (playerReady.length === 4 && playerReady.every(x => x)) {
+      // reset readiness of each player
+      const players = await redisMng.getPlayers(tableID);
+      players.forEach(
+        p => redisMng.changePlayerReady(p)
+      );
+      playerReady = await redisMng.getPlayerReady(tableID);
+
       console.log('game start');
-      const data = await startGame(Array(4).fill('no'));
-      const gameID = data.gameID;
+      payload = await startGame(Array(4).fill('no'));
+      payload.start = true;
+      const gameID = payload.gameID;
       console.log(gameID);
-      req.session.gameID = gameID;
       await redisMng.bindGame(tableID, gameID);
       console.log(req.session.playerID);
-      io.to(tableID).emit('game:update', data);
-      socket.emit('game:update', data);
-    } else {
-      io.to(tableID).emit('table:update', {playerReady: playerReady});
-      socket.emit('table:update', {playerReady: playerReady});      
+      io.to(tableID).emit('game:update', payload);
+      socket.emit('game:update', payload);
     }
+    payload = {
+      source: 'ready',
+      playerReady: playerReady,
+    };
+    io.to(tableID).emit('table:update', payload);
+    socket.emit('table:update', payload);
   });
 
-  socket.on('game:start', async () => {
-    console.log('start');
-    const data = await startGame();
-    const gameID = data.gameID;
-    console.log(gameID);
-    req.session.gameID = gameID;
-    console.log(req.session.playerID);
-    socket.emit('game:update', data);
+  socket.on('game:renew-id', async (callback) => {
+    req.session.gameID = await redisMng.fetchGame(req.session.tableID);
+    callback({status: 'OK'});
   });
 
   socket.on('game:action', async (action, pid, tid) => {
-    if(!req.session.gameID) {
-      req.session.gameID = await redisMng.fetchGame(req.session.tableID);
-    }
     const gameID = req.session.gameID;
     const data = await act(gameID, action, pid, tid);
     io.to(req.session.tableID).emit('game:update', data);
