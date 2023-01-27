@@ -9,7 +9,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function startGame(botType) {
   const payload = {};
   const players = botType.map(b => new Player([], [], [], b));
-  const mjGame = new MahjongGame([], players);
+  const dealer = Math.floor(Math.random() * 4); // choose dealer (first to play) randomly
+  const mjGame = new MahjongGame([], players, dealer);
   mjGame.start();
   if(mjGame.checkActions()) mjGame.status = 2;
   payload.gameState = mjGame.toJSON();

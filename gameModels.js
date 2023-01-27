@@ -8,7 +8,7 @@ class MahjongGame {
     ) {
         this.tiles = tiles.map((t) => parseInt(t));
         this.players = players;
-        this.currPlayer = currPlayer;
+        this.currPlayer = currPlayer; // by setting this, dealer/banker can be effectively set
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
         this.playerActions = playerActions;
