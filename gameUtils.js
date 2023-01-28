@@ -36,11 +36,15 @@ function havePong(hand, tile) {
     return counter[tile] === 2;
 }
 
-function haveKong(hand, tile = null) {
-    const counter = countTiles(hand);
-    if(tile !== null) return counter[tile] === 3;
-    for(let val of Object.values(counter)) {
+function haveKong(hand, show, tile = null) {
+    const handCounter = countTiles(hand);
+    if(tile !== null) return handCounter[tile] === 3;
+    for(let val of Object.values(handCounter)) {
         if(val === 4) return true;
+    }
+    const showCounter = countTiles(show); // check return Kong
+    for(let key of Object.keys(handCounter)) {
+        if(showCounter[key] === 3) return true;
     }
     return false;
 }

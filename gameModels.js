@@ -70,6 +70,16 @@ class MahjongGame {
         return this.players.map((player) => player.getShow());
     }
 
+    getPlayerShow(i = null) {
+        if (i === null) i = this.currPlayer;
+        return this.players[i].show;
+    }
+
+    setPlayerShow(i = null, newShow) {
+        if (i === null) i = this.currPlayer;
+        this.players[i].setShow(newShow);
+    }
+
     getPlayerToAct() {
         // Deduce decision requirement from player actions
         // Player to discard not included
@@ -251,20 +261,20 @@ class MahjongGame {
 
     commitKong(actPlayer) {
         let kongTile;
-        if(actPlayer !== this.currPlayer) {
+        if (actPlayer !== this.currPlayer) {
             kongTile = this.players[this.currPlayer].waste.pop();
             this.currPlayer = actPlayer;
         } else {
-            kongTile = gameUtils.getKongTile(this.getPlayerHand())[0];
+            kongTile = gameUtils.getKongTile(this.getPlayerHand().concat(this.getPlayerShow()))[0];
             console.log('Kong tile: ' + kongTile);
         }
         this.setPlayerHand(null, this.getPlayerHand().filter(
             (tile) => tile !== kongTile
         ));
         console.log(this.getPlayerHand());
-        this.players[this.currPlayer].show = this.players[this.currPlayer].show.concat(
-            Array(4).fill(kongTile)
-        );
+        this.setPlayerShow(null, this.getPlayerShow().filter(
+            (tile) => tile !== kongTile
+        ).concat(Array(4).fill(kongTile)));
         this.drawTile();
         this.status = this.checkActions() ? 2 : 1;
     }
@@ -333,6 +343,10 @@ class Player {
     getShow() {
         return this.show;
     }
+
+    setShow(newShow) {
+        this.show = newShow;
+    }
     
     addHand(tile) {
         this.hand.push(tile);
@@ -361,8 +375,7 @@ class Player {
 
     checkKong(tile = null) {
         // check ming/an/rao(return) kong
-        return gameUtils.haveKong(this.hand, tile) || (
-            tile === null && gameUtils.haveKong(this.waste, this.hand.at(-1)));
+        return gameUtils.haveKong(this.hand, this.show, tile);
     }
 
     makeDecision(pid, playerAction) {
