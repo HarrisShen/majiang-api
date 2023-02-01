@@ -213,7 +213,7 @@ class MahjongGame {
         if(tile === null) {
             playerActions[this.currPlayer] = {
                 pong: false,
-                kong: this.players[this.currPlayer].checkKong(),
+                kong: this.tiles.length > 0 && this.players[this.currPlayer].checkKong(),
                 chow: false,
                 hu: this.players[this.currPlayer].checkHuPai()
             };
