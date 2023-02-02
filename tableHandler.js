@@ -1,21 +1,28 @@
 module.exports = (io, socket, redisMng) => {
   const req = socket.request;
 
-  socket.on('table:create', async () => {
+  socket.on('table:create', async (sizeLimit) => {
     console.log('create table');
     const playerID = req.session.playerID;
-    const tableID = await redisMng.createTable();
+    const tableID = await redisMng.createTable(sizeLimit);
     req.session.tableID = tableID;
     socket.join(tableID);
     socket.join(playerID);
     console.log('table created: ' + tableID);
     await redisMng.addPlayer(tableID, playerID);
-    socket.emit('table:update', {
-      source: 'create',
-      tableID: tableID,
-      players: [playerID],
-      playerReady: [false],
-    });
+    const data = {source: 'create', tableID: tableID};
+    if (sizeLimit === 1) {
+      Object.assign(data, {
+        players: [playerID, 'CPU1', 'CPU2', 'CPU3'],
+        playerReady: [false, true, true, true],
+      });
+    } else {
+      Object.assign(data, {
+        players: [playerID],
+        playerReady: [false],
+      });
+    }
+    socket.emit('table:update', data);
   });
 
   socket.on('table:leave', async (callback) => {
@@ -26,7 +33,6 @@ module.exports = (io, socket, redisMng) => {
     socket.leave(tableID);
     const players = await redisMng.getPlayers(tableID);
     const playerReady = await redisMng.getPlayerReady(tableID);
-    console.log(players);
     console.log('table:' + tableID + ' left');
     io.to(tableID).emit('table:update', {
       source: 'leave',
@@ -38,9 +44,6 @@ module.exports = (io, socket, redisMng) => {
 
   socket.on('table:join', async (tableID, callback) => {
     console.log('joining table');
-    // if(!req.session.playerID) {
-    //   req.session.playerID = 'User-' + nanoid(8);
-    // }
     const playerID = req.session.playerID;
     try {
       await redisMng.addPlayer(tableID, playerID);

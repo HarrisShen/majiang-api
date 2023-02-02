@@ -16,6 +16,8 @@ function cleanPayload(payload, playerID, players) {
   return newPayload;
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 module.exports = (io, socket, redisMng) => {
   const req = socket.request;
 
@@ -25,17 +27,25 @@ module.exports = (io, socket, redisMng) => {
     console.log(playerID + ': readiness change');
     await redisMng.changePlayerReady(playerID);
     let playerReady = await redisMng.getPlayerReady(tableID);
+    const tableLimit = await redisMng.getTableLimit(tableID);
     let payload = {};
-    if (playerReady.length === 4 && playerReady.every(x => x)) {
+    if (playerReady.length === tableLimit && playerReady.every(x => x)) {
       // reset readiness of each player
       const players = await redisMng.getPlayers(tableID);
+      console.log(players);
       players.forEach(
         p => redisMng.changePlayerReady(p)
       );
       playerReady = await redisMng.getPlayerReady(tableID);
 
       console.log('game start');
-      payload = await startGame(Array(4).fill('no'));
+      let botType;
+      if (tableLimit === 1) {
+        botType = ['no', 'rd', 'rd', 'rd'];
+      } else {
+        botType = ['no', 'no', 'no', 'no'];
+      }
+      payload = await startGame(botType);
       payload.start = true;
       const gameID = payload.gameID;
       console.log(gameID);
@@ -62,11 +72,21 @@ module.exports = (io, socket, redisMng) => {
   socket.on('game:action', async (action, pid, tid) => {
     const players = await redisMng.getPlayers(req.session.tableID);
     const gameID = req.session.gameID;
-    const payload = await act(gameID, action, pid, tid);
-    players.forEach(p => io.in(p).emit(
-      'game:update', 
-      cleanPayload(payload, p, players)
-    ));
-    await continueGame(gameID, socket);
+    let payload = await act(gameID, action, pid, tid);
+    if (players.length === 4) {
+      players.forEach(p => io.in(p).emit(
+        'game:update', 
+        cleanPayload(payload, p, players)
+      ));
+      return;
+    }
+    while (payload.gameID) {
+      socket.emit(
+        'game:update',
+        cleanPayload(payload, players[0], players)
+      );
+      payload = await continueGame(gameID);
+      if (payload.gameID) await sleep(1000);
+    }
   });
 };

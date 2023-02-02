@@ -4,12 +4,12 @@ const gameModel = require('./gameModels');
 const MahjongGame = gameModel.MahjongGame;
 const Player = gameModel.Player;
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-async function startGame(botType) {
+async function startGame(botType, dealer = 0) {
   const payload = {};
   const players = botType.map(b => new Player([], [], [], b));
-  const dealer = Math.floor(Math.random() * 4); // choose dealer (first to play) randomly
+  if (dealer === -1) {
+    dealer = Math.floor(Math.random() * 4); // choose dealer (first to play) randomly
+  }
   const mjGame = new MahjongGame([], players, dealer);
   mjGame.start();
   if(mjGame.checkActions()) mjGame.status = 2;
@@ -30,22 +30,20 @@ async function act(gameID, action, pid, tid) {
   };
 }
 
-async function continueGame(gameID, socket) {
+async function continueGame(gameID) {
   const mjGame = await MahjongGame.loadFromRedis(gameClient, gameID);
   let needAct = mjGame.getPlayerToAct()[0]; // Now just assume at most one player need to act
-  while(needAct !== -1 && mjGame.players[needAct].isBot()) {
-    console.log(needAct);
-    await sleep(1000);
+  if (needAct !== -1 && mjGame.players[needAct].isBot()) {
     let [action, pid, tid] = mjGame.makeDecision(needAct);
     mjGame.applyAction(action, pid, tid);
     console.log(action, pid, tid);
     await mjGame.dumpToRedis(gameClient, gameID);
-    socket.emit('game:update', {
+    return {
       gameID: gameID,
       gameState: mjGame.toJSON()
-    });
-    needAct = mjGame.getPlayerToAct()[0];
-  } 
+    };    
+  }
+  return {};
 }
 
 module.exports = { startGame, act, continueGame };
