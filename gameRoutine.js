@@ -4,7 +4,7 @@ const gameModel = require('./gameModels');
 const MahjongGame = gameModel.MahjongGame;
 const Player = gameModel.Player;
 
-async function startGame(botType, dealer = 0) {
+async function startGame(botType, dealer = -1) {
   const payload = {};
   const players = botType.map(b => new Player([], [], [], b));
   if (dealer === -1) {

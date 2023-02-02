@@ -64,29 +64,31 @@ module.exports = (io, socket, redisMng) => {
     socket.emit('table:update', payload);
   });
 
-  socket.on('game:renew-id', async (callback) => {
-    req.session.gameID = await redisMng.fetchGame(req.session.tableID);
-    callback({status: 'OK'});
-  });
-
   socket.on('game:action', async (action, pid, tid) => {
+    if (action === null) {
+      // renew gameID once game starts
+      req.session.gameID = await redisMng.fetchGame(req.session.tableID);
+    }
     const players = await redisMng.getPlayers(req.session.tableID);
     const gameID = req.session.gameID;
-    let payload = await act(gameID, action, pid, tid);
-    if (players.length === 4) {
-      players.forEach(p => io.in(p).emit(
-        'game:update', 
-        cleanPayload(payload, p, players)
-      ));
-      return;
+    let payload;
+    if (action !== null) {
+      payload = await act(gameID, action, pid, tid);
+      if (players.length === 4) {
+        players.forEach(p => io.in(p).emit(
+          'game:update', 
+          cleanPayload(payload, p, players)
+        ));
+        return;
+      }
+      socket.emit('game:update', cleanPayload(payload, players[0], players));     
     }
+    // If action is null, it means to kick start the game for single player
+    payload = await continueGame(gameID);
     while (payload.gameID) {
-      socket.emit(
-        'game:update',
-        cleanPayload(payload, players[0], players)
-      );
+      await sleep(1000);
+      socket.emit('game:update', cleanPayload(payload, players[0], players));
       payload = await continueGame(gameID);
-      if (payload.gameID) await sleep(1000);
     }
   });
 };
