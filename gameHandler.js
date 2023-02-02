@@ -6,11 +6,14 @@ function cleanPayload(payload, playerID, players) {
   const idx = players.indexOf(playerID);
   const gameState = newPayload.gameState;
   gameState.tiles = gameState.tiles.length;
-  let handLength;
-  for (let i = 0; i < 4; i++) {
-    if (i === idx) continue;
-    handLength = gameState.playerHands[i].length;
-    gameState.playerHands[i] = Array(handLength).fill(0);
+  if (gameState.status !== 0) {
+    // Only perform hiding when game is still ongoing
+    let handLength;
+    for (let i = 0; i < 4; i++) {
+      if (i === idx) continue;
+      handLength = gameState.playerHands[i].length;
+      gameState.playerHands[i] = Array(handLength).fill(0);
+    } 
   }
   newPayload.gameState = gameState;
   return newPayload;
@@ -76,7 +79,7 @@ module.exports = (io, socket, redisMng) => {
       payload = await act(gameID, action, pid, tid);
       if (players.length === 4) {
         players.forEach(p => io.in(p).emit(
-          'game:update', 
+          'game:update',
           cleanPayload(payload, p, players)
         ));
         return;
