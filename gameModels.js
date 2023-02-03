@@ -1,4 +1,12 @@
-const gameUtils = require('./gameUtils');
+const {
+    getTiles,
+    shuffleArray,
+    havePong,
+    haveKong,
+    haveChow,
+    getKongTile,
+    isHuPai,
+} = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
 class MahjongGame {
@@ -166,8 +174,8 @@ class MahjongGame {
     }
 
     start() {
-        this.tiles = gameUtils.getTiles();
-        gameUtils.shuffleArray(this.tiles);
+        this.tiles = getTiles();
+        shuffleArray(this.tiles);
         while(this.getHandSize(this.currPlayer) < 14){
             this.drawTile();
             if(this.getHandSize(this.currPlayer) === 14) break;
@@ -206,6 +214,11 @@ class MahjongGame {
         return -1;
     }
 
+    checkChow(tile) {
+        const nextP = (this.currPlayer + 1) % 4;
+        return [nextP, this.players[nextP].checkChow(tile)];
+    }
+
     checkActions(tile = null) {
         const playerActions = [];
         for(let i = 0; i < 4; i++)
@@ -221,12 +234,16 @@ class MahjongGame {
             const discardTile = this.players[this.currPlayer].waste.at(-1);
             const pongPlayer = this.checkPong(discardTile);
             const kongPlayer = this.checkKong(discardTile);
+            const [chowPlayer, chowType] = this.checkChow(discardTile);
             const huPlayer = this.checkChuck(discardTile);
-            if(pongPlayer !== -1) {
+            if (pongPlayer !== -1) {
                 playerActions[pongPlayer]['pong'] = true;
             }
-            if(kongPlayer !== -1) {
+            if (kongPlayer !== -1) {
                 playerActions[kongPlayer]['kong'] = true;
+            }
+            if (chowType !== 0) {
+                playerActions[chowPlayer]['chow'] = true;
             }
             huPlayer.forEach((i) => {
                 playerActions[i]['hu'] = true;
@@ -265,7 +282,7 @@ class MahjongGame {
             kongTile = this.players[this.currPlayer].waste.pop();
             this.currPlayer = actPlayer;
         } else {
-            kongTile = gameUtils.getKongTile(this.getPlayerHand().concat(this.getPlayerShow()))[0];
+            kongTile = getKongTile(this.getPlayerHand().concat(this.getPlayerShow()))[0];
             console.log('Kong tile: ' + kongTile);
         }
         this.setPlayerHand(null, this.getPlayerHand().filter(
@@ -277,6 +294,37 @@ class MahjongGame {
         ).concat(Array(4).fill(kongTile)));
         this.drawTile();
         this.status = this.checkActions() ? 2 : 1;
+    }
+
+    commitChow(actPlayer) {
+        // 0: 1,2,x; 1: 1,x,2; 2: x,2,3
+        const chowTile = this.players[this.currPlayer].waste.pop();
+        let [chowPlayer, chowType] = this.checkChow(chowTile);
+        if (chowType & 1) chowType = 2;
+        else {
+            chowType >>= 1;
+            if (chowType & 1) chowType = 1;
+            else {
+                chowType >>= 1;
+                if (chowType & 1) chowType = 0;
+            }
+        }
+        const newHand = this.getPlayerHand(actPlayer).slice();
+        let offset = chowType == 2 ? chowType - 2 : 1;
+        let idxToRemove = newHand.indexOf(chowTile + offset);
+        newHand.splice(idxToRemove);
+        offset = chowType == 0 ? -1 : chowType;
+        idxToRemove = newHand.indexOf(chowTile + offset);
+        newHand.splice(idxToRemove);
+        this.setPlayerHand(actPlayer, newHand);
+
+        this.players[actPlayer].show = this.players[actPlayer].show.concat(
+            [chowTile - chowType - 2, chowTile - chowType - 1, chowTile - chowType]
+        );
+        this.checkActions();
+        this.playerActions[actPlayer] = initAction();
+        this.currPlayer = actPlayer;
+        this.status = 1;
     }
 
     commitHu(actPlayer) {
@@ -299,6 +347,8 @@ class MahjongGame {
             this.commitPong(pid);
         } else if(action === 'kong') {
             this.commitKong(pid);
+        } else if (action === 'chow') {
+            this.commitChow(pid);
         } else if(action === 'win') {
             this.commitHu(pid);
         } else if(action === 'cancel') {
@@ -365,17 +415,21 @@ class Player {
 
     checkHuPai(tile = null) {
         if(tile === null)
-            return gameUtils.isHuPai(this.hand);
-        return gameUtils.isHuPai(this.hand.concat([tile]));
+            return isHuPai(this.hand);
+        return isHuPai(this.hand.concat([tile]));
     }
 
     checkPong(tile) {
-        return gameUtils.havePong(this.hand, tile);
+        return havePong(this.hand, tile);
     }
 
     checkKong(tile = null) {
         // check ming/an/rao(return) kong
-        return gameUtils.haveKong(this.hand, this.show, tile);
+        return haveKong(this.hand, this.show, tile);
+    }
+
+    checkChow(tile) {
+        return haveChow(this.hand, tile);
     }
 
     makeDecision(pid, playerAction) {

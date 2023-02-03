@@ -49,6 +49,17 @@ function haveKong(hand, show, tile = null) {
     return false;
 }
 
+function haveChow(hand, tile) {
+    const counter = countTiles(hand);
+    let code = 0; // Represents the type of chow in octal
+    if (counter[tile - 2] && counter[tile - 1]) code += 1;
+    code <<= 1;
+    if (counter[tile - 1] && counter[tile + 1]) code += 1;
+    code <<= 1;
+    if (counter[tile + 1] && counter[tile + 2]) code += 1;
+    return code;
+}
+
 function getKongTile(hand) {
     const counter = countTiles(hand);
     const kong_tiles = [];
@@ -103,12 +114,13 @@ function isMelds(counter) {
 }
 
 module.exports = {
-    getTiles: getTiles,
-    shuffleArray: shuffleArray,
-    havePong: havePong,
-    haveKong: haveKong,
-    getKongTile: getKongTile,
-    isHuPai: isHuPai,
+    getTiles,
+    shuffleArray,
+    havePong,
+    haveKong,
+    haveChow,
+    getKongTile,
+    isHuPai,
 }
 
 // const counter = countTiles([1,2,2,3,3,4,97,98,99]);
