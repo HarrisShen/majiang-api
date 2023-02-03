@@ -1,11 +1,7 @@
 const {
-    getTiles,
-    shuffleArray,
-    havePong,
-    haveKong,
-    haveChow,
-    getKongTile,
-    isHuPai,
+    getTiles, shuffleArray,
+    havePong, haveKong, haveChow,
+    getKongTile, isHuPai,
 } = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
@@ -20,6 +16,8 @@ class MahjongGame {
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
         this.playerActions = playerActions;
+        this.waitingFor = [];
+        this.actionList = {win: [], kong: [], pong: [], chow: []}; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
         this.lastAction = lastAction;
     }
 
@@ -104,7 +102,7 @@ class MahjongGame {
         await client.set(gamePrefix + ':currPlayer', this.currPlayer);
         await client.set(gamePrefix + ':status', this.status);
         await client.set(gamePrefix + ':winner', this.winner.join());
-        await client.set(gamePrefix + ':playerActions', serialize(this.playerActions));
+        await client.set(gamePrefix + ':playerActions', JSON.stringify(this.playerActions));
         await client.set(gamePrefix + ':lastAction', this.lastAction);
         let playerPrefix;
         for(let i = 0; i < 4; i++) {
@@ -148,7 +146,7 @@ class MahjongGame {
         }
         return new MahjongGame(
             tiles.map(t => parseInt(t)), players, parseInt(currPlayer),
-            parseInt(status), winner, deserialize(playerActions), lastAction
+            parseInt(status), winner, JSON.parse(playerActions), lastAction
         );
     }
 
@@ -230,36 +228,39 @@ class MahjongGame {
                 chow: false,
                 hu: this.players[this.currPlayer].checkHuPai()
             };
+            if (playerActions[this.currPlayer]['kong']) {
+                playerActions[this.currPlayer]['kong'] = getKongTile(this.getPlayerHand());
+            }
         } else {
             const discardTile = this.players[this.currPlayer].waste.at(-1);
+            const huPlayer = this.checkChuck(discardTile);
+            huPlayer.forEach((i) => {
+                playerActions[i]['hu'] = true;
+            });         
+
             const pongPlayer = this.checkPong(discardTile);
             const kongPlayer = this.checkKong(discardTile);
-            const [chowPlayer, chowType] = this.checkChow(discardTile);
-            const huPlayer = this.checkChuck(discardTile);
             if (pongPlayer !== -1) {
                 playerActions[pongPlayer]['pong'] = true;
             }
             if (kongPlayer !== -1) {
                 playerActions[kongPlayer]['kong'] = true;
             }
-            if (chowType !== 0) {
-                playerActions[chowPlayer]['chow'] = true;
-            }
-            huPlayer.forEach((i) => {
-                playerActions[i]['hu'] = true;
-            });
+
+            // chow disabled for now
+            // const [chowPlayer, chowType] = this.checkChow(discardTile);
+            // if (chowType !== 0) {
+            //     playerActions[chowPlayer]['chow'] = true;
+            // }
         }
-        let flag = false;
+        // let flag = false;
         for(let i = 0; i < 4; i++) {
-            for(let v of Object.values(playerActions[i])){
-                if(v) {
-                    flag = true;
-                    break;
-                }
+            if (Object.values(playerActions[i]).some(x => x)) {
+                this.waitingFor.push(i);
             }
         }
         this.playerActions = playerActions;
-        return flag;
+        return this.waitingFor.length > 0;
     }
 
     commitPong(actPlayer) {
@@ -296,19 +297,9 @@ class MahjongGame {
         this.status = this.checkActions() ? 2 : 1;
     }
 
-    commitChow(actPlayer) {
+    commitChow(actPlayer, chowType) {
         // 0: 1,2,x; 1: 1,x,2; 2: x,2,3
         const chowTile = this.players[this.currPlayer].waste.pop();
-        let [chowPlayer, chowType] = this.checkChow(chowTile);
-        if (chowType & 1) chowType = 2;
-        else {
-            chowType >>= 1;
-            if (chowType & 1) chowType = 1;
-            else {
-                chowType >>= 1;
-                if (chowType & 1) chowType = 0;
-            }
-        }
         const newHand = this.getPlayerHand(actPlayer).slice();
         let offset = chowType == 2 ? chowType - 2 : 1;
         let idxToRemove = newHand.indexOf(chowTile + offset);
@@ -327,12 +318,14 @@ class MahjongGame {
         this.status = 1;
     }
 
-    commitHu(actPlayer) {
-        if(actPlayer !== this.currPlayer) {
+    commitHu(actPlayers) {
+        if(actPlayers.length > 1) {
             const winnerTile = this.players[this.currPlayer].waste.pop();
-            this.players[actPlayer].addHand(winnerTile, false);
+            actPlayers.forEach(actPlayer => {
+                this.players[actPlayer].addHand(winnerTile);
+            });
         }
-        this.winner.push(actPlayer);
+        this.winner = actPlayers;
         this.status = 0;
     }
 
@@ -343,15 +336,22 @@ class MahjongGame {
             this.sortPlayerHand();
             if(this.checkActions(discardTile)) this.status = 2;
             else this.nextStep();
-        } else if(action === 'pong') {
-            this.commitPong(pid);
-        } else if(action === 'kong') {
-            this.commitKong(pid);
-        } else if (action === 'chow') {
-            this.commitChow(pid);
-        } else if(action === 'win') {
-            this.commitHu(pid);
-        } else if(action === 'cancel') {
+            return;
+        }
+        this.waitingFor.splice(this.waitingFor.indexOf(pid), 1);
+        this.actionList[action].push([pid, tid]);
+
+        if (this.waitingFor.length !== 0) return;
+
+        if (this.actionList['win'].length > 0) {
+            this.commitHu(this.actionList['win'].map(x => x[0]));
+        } else if (this.actionList['kong'].length > 0) {
+            this.commitKong(this.actionList['kong'][0][0]);
+        } else if (this.actionList['pong'].length > 0) {
+            this.commitPong(this.actionList['pong'][0][0]);
+        } else if (this.actionList['chow'].length > 0) {
+            this.commitChow(...this.actionList['chow'][0]);
+        } else {
             this.status = 1;
             if(pid !== this.currPlayer) this.nextStep();
         }
@@ -456,26 +456,26 @@ const initAction = () => ({
     hu: false,
 });
 
-function serialize(actions) {
-    let actionsStr = '';
-    for(let i = 0; i < 4; i++) {
-        for(let k of ['pong', 'kong', 'chow', 'hu']) {
-            actionsStr += (actions[i][k]? '1' : '0');
-        }
-    }
-    return actionsStr;
-}
+// function serialize(actions) {
+//     let actionsStr = '';
+//     for(let i = 0; i < 4; i++) {
+//         for(let k of ['pong', 'kong', 'chow', 'hu']) {
+//             actionsStr += (actions[i][k]? '1' : '0');
+//         }
+//     }
+//     return actionsStr;
+// }
 
-function deserialize(actionsStr) {
-    const actions = [{}, {}, {}, {}];
-    const keys = ['pong', 'kong', 'chow', 'hu'];
-    for(let i = 0; i < 4; i++) {
-        for(let j = 0; j < 4; j++) {
-            actions[i][keys[j]] = (actionsStr[i * 4 + j] === '1');
-        }
-    }
-    return actions;
-}
+// function deserialize(actionsStr) {
+//     const actions = [{}, {}, {}, {}];
+//     const keys = ['pong', 'kong', 'chow', 'hu'];
+//     for(let i = 0; i < 4; i++) {
+//         for(let j = 0; j < 4; j++) {
+//             actions[i][keys[j]] = (actionsStr[i * 4 + j] === '1');
+//         }
+//     }
+//     return actions;
+// }
 
 module.exports = {
     MahjongGame: MahjongGame,
