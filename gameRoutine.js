@@ -32,16 +32,19 @@ async function act(gameID, action, pid, tid) {
 
 async function continueGame(gameID) {
   const mjGame = await MahjongGame.loadFromRedis(gameClient, gameID);
-  let needAct = mjGame.getPlayerToAct()[0]; // Now just assume at most one player need to act
-  if (needAct !== -1 && mjGame.players[needAct].isBot()) {
-    let [action, pid, tid] = mjGame.makeDecision(needAct);
-    mjGame.applyAction(action, pid, tid);
-    console.log(action, pid, tid);
-    await mjGame.dumpToRedis(gameClient, gameID);
-    return {
-      gameID: gameID,
-      gameState: mjGame.toJSON()
-    };    
+  let needAct = mjGame.getPlayerToAct();
+  for (i of needAct) {
+    if (i === -1) break;
+    if (mjGame.players[i].isBot()) {
+      let [action, pid, tid] = mjGame.makeDecision(i);
+      mjGame.applyAction(action, pid, tid);
+      console.log(action, pid, tid);
+      await mjGame.dumpToRedis(gameClient, gameID);
+      return {
+        gameID: gameID,
+        gameState: mjGame.toJSON()
+      };
+    }
   }
   return {};
 }

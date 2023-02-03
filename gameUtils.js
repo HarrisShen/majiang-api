@@ -51,13 +51,11 @@ function haveKong(hand, show, tile = null) {
 
 function haveChow(hand, tile) {
     const counter = countTiles(hand);
-    let code = 0; // Represents the type of chow in octal
-    if (counter[tile - 2] && counter[tile - 1]) code += 1;
-    code <<= 1;
-    if (counter[tile - 1] && counter[tile + 1]) code += 1;
-    code <<= 1;
-    if (counter[tile + 1] && counter[tile + 2]) code += 1;
-    return code;
+    const chowType = [];
+    if (counter[tile - 2] && counter[tile - 1]) chowType.push(2);
+    if (counter[tile - 1] && counter[tile + 1]) chowType.push(1);
+    if (counter[tile + 1] && counter[tile + 2]) chowType.push(0);
+    return chowType;
 }
 
 function getKongTile(hand) {
