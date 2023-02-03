@@ -5,10 +5,17 @@ const {
 } = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
+const initAction = (initValue) => ({
+    pong: initValue,
+    kong: initValue,
+    chow: initValue,
+    hu: initValue,
+});
+
 class MahjongGame {
     constructor(
-        tiles, players, currPlayer = 0, status = 0,
-        winner = [], playerActions = [], lastAction = ''
+        tiles, players, currPlayer = 0, status = 0, winner = [],
+        playerActions = [], waitingFor = [], actionList = null, lastAction = ''
     ) {
         this.tiles = tiles.map((t) => parseInt(t));
         this.players = players;
@@ -16,8 +23,8 @@ class MahjongGame {
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
         this.playerActions = playerActions;
-        this.waitingFor = [];
-        this.actionList = {win: [], kong: [], pong: [], chow: []}; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
+        this.waitingFor = waitingFor;
+        this.actionList = actionList === null ? initAction([]) : actionList; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
         this.lastAction = lastAction;
     }
 
@@ -30,6 +37,8 @@ class MahjongGame {
             currPlayer: this.currPlayer,
             playerActions: this.playerActions,
             lastAction: this.lastAction,
+            waitingFor: this.waitingFor,
+            actionList: this.actionList,
             winner: this.winner,
             status: this.status,
         };
@@ -103,6 +112,8 @@ class MahjongGame {
         await client.set(gamePrefix + ':status', this.status);
         await client.set(gamePrefix + ':winner', this.winner.join());
         await client.set(gamePrefix + ':playerActions', JSON.stringify(this.playerActions));
+        await client.set(gamePrefix + ':waitingFor', JSON.stringify(this.waitingFor));
+        await client.set(gamePrefix + ':actionList', JSON.stringify(this.actionList));
         await client.set(gamePrefix + ':lastAction', this.lastAction);
         let playerPrefix;
         for(let i = 0; i < 4; i++) {
@@ -126,6 +137,8 @@ class MahjongGame {
         let winner = await client.get(gamePrefix + ':winner');
         winner = (winner !== '' ? winner.split(',') : []);
         const playerActions = await client.get(gamePrefix + ':playerActions');
+        const waitingFor = await client.get(gamePrefix + ':waitingFor');
+        const actionList = await client.get(gamePrefix + ':actionList');
         const lastAction = await client.get(gamePrefix + ':lastAction');
         let playerPrefix, playerTiles, bot;
         const players = [];
@@ -146,7 +159,8 @@ class MahjongGame {
         }
         return new MahjongGame(
             tiles.map(t => parseInt(t)), players, parseInt(currPlayer),
-            parseInt(status), winner, JSON.parse(playerActions), lastAction
+            parseInt(status), winner, JSON.parse(playerActions), 
+            JSON.parse(waitingFor), JSON.parse(actionList), lastAction
         );
     }
 
@@ -220,7 +234,7 @@ class MahjongGame {
     checkActions(tile = null) {
         const playerActions = [];
         for(let i = 0; i < 4; i++)
-          playerActions.push(initAction());
+          playerActions.push(initAction(false));
         if(tile === null) {
             playerActions[this.currPlayer] = {
                 pong: false,
@@ -319,12 +333,10 @@ class MahjongGame {
     }
 
     commitHu(actPlayers) {
-        if(actPlayers.length > 1) {
-            const winnerTile = this.players[this.currPlayer].waste.pop();
-            actPlayers.forEach(actPlayer => {
-                this.players[actPlayer].addHand(winnerTile);
-            });
-        }
+        const winnerTile = this.players[this.currPlayer].waste.pop();
+        actPlayers.forEach(actPlayer => {
+            this.players[actPlayer].addHand(winnerTile);
+        });
         this.winner = actPlayers;
         this.status = 0;
     }
@@ -339,12 +351,14 @@ class MahjongGame {
             return;
         }
         this.waitingFor.splice(this.waitingFor.indexOf(pid), 1);
-        this.actionList[action].push([pid, tid]);
+        if (action !== 'cancel') {
+            this.actionList[action].push([pid, tid]);
+        }
 
         if (this.waitingFor.length !== 0) return;
-
-        if (this.actionList['win'].length > 0) {
-            this.commitHu(this.actionList['win'].map(x => x[0]));
+        console.log(this.actionList);
+        if (this.actionList['hu'].length > 0) {
+            this.commitHu(this.actionList['hu'].map(x => x[0]));
         } else if (this.actionList['kong'].length > 0) {
             this.commitKong(this.actionList['kong'][0][0]);
         } else if (this.actionList['pong'].length > 0) {
@@ -355,6 +369,7 @@ class MahjongGame {
             this.status = 1;
             if(pid !== this.currPlayer) this.nextStep();
         }
+        this.actionList = initAction([]);
     }
 
     makeDecision(pid) {
@@ -448,13 +463,6 @@ class Player {
         return ['discard', pid, Math.floor(Math.random() * this.hand.length)];
     }
 }
-
-const initAction = () => ({
-    pong: false,
-    kong: false,
-    chow: false,
-    hu: false,
-});
 
 // function serialize(actions) {
 //     let actionsStr = '';
