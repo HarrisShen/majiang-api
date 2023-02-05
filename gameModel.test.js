@@ -14,7 +14,7 @@ test('No self Pong'), (t) => {
   const tiles = [11, 11, 11];
   const playerParams = [
     [[12,12,12,13], [16,16,16,16], [15,15,15], 'no'],
-    [[19], [], [], 'no'],
+    [[19,19,19,31], [], [], 'no'],
     [[21], [], [], 'no'],
     [[31], [], [], 'no'],
   ];
@@ -25,6 +25,9 @@ test('No self Pong'), (t) => {
   mjGame.applyAction('discard', 0, 0);
   assert(mjGame.status !== 2);
   assert(!mjGame.playerActions[0].pong);
+  mjGame.applyAction('discard', 1, 0);
+  assert(mjGame.status !== 2);
+  assert(!mjGame.playerActions[1].pong);
 }
 
 test('return Kong test', (t) => {

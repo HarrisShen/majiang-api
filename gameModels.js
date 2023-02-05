@@ -5,11 +5,11 @@ const {
 } = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
-const initAction = (initValue) => ({
-    pong: initValue,
-    kong: initValue,
-    chow: initValue,
-    hu: initValue,
+const initAction = (initCallback = () => false) => ({
+    pong: initCallback(),
+    kong: initCallback(),
+    chow: initCallback(),
+    hu: initCallback(),
 });
 
 class MahjongGame {
@@ -24,7 +24,7 @@ class MahjongGame {
         this.winner = winner;
         this.playerActions = playerActions;
         this.waitingFor = waitingFor;
-        this.actionList = actionList === null ? initAction([]) : actionList; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
+        this.actionList = actionList === null ? initAction(() => []) : actionList; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
         this.lastAction = lastAction;
     }
 
@@ -231,7 +231,7 @@ class MahjongGame {
     checkActions(tile = null) {
         const playerActions = [];
         for(let i = 0; i < 4; i++)
-          playerActions.push(initAction(false));
+          playerActions.push(initAction());
         if(tile === null) {
             playerActions[this.currPlayer] = {
                 pong: false,
@@ -372,7 +372,7 @@ class MahjongGame {
             this.status = 1;
             if(pid !== this.currPlayer) this.nextStep();
         }
-        this.actionList = initAction([]);
+        this.actionList = initAction(() => []);
     }
 
     makeDecision(pid) {
