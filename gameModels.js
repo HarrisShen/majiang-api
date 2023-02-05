@@ -19,7 +19,7 @@ class MahjongGame {
     ) {
         this.tiles = tiles.map((t) => parseInt(t));
         this.players = players;
-        this.currPlayer = currPlayer; // by setting this, dealer/banker can be effectively set
+        this.currPlayer = currPlayer; // by setting this at beginning, dealer/banker can be effectively set
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
         this.playerActions = playerActions;
@@ -184,8 +184,8 @@ class MahjongGame {
         if(this.checkActions()) this.status = 2;
     }
 
-    start() {
-        this.tiles = getTiles();
+    start(tileConfig) {
+        this.tiles = getTiles(tileConfig.honor);
         shuffleArray(this.tiles);
         while(this.getHandSize(this.currPlayer) < 14){
             this.drawTile();
@@ -247,7 +247,7 @@ class MahjongGame {
             const huPlayer = this.checkChuck(discardTile);
             huPlayer.forEach((i) => {
                 playerActions[i]['hu'] = true;
-            });         
+            });
 
             const pongPlayer = this.checkPong(discardTile);
             const kongPlayer = this.checkKong(discardTile);
@@ -359,7 +359,6 @@ class MahjongGame {
 
         if (this.waitingFor.length !== 0) return;
 
-        console.log(this.actionList);
         if (this.actionList['hu'].length > 0) {
             this.commitHu(this.actionList['hu'].map(x => x[0]));
         } else if (this.actionList['kong'].length > 0) {

@@ -1,17 +1,19 @@
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
 
-function getTiles() {
-    let tiles = [];
-    for(let i = 1; i < 4; i ++) {
-        for(let j = 1; j < 10; j++) {
-            tiles = tiles.concat(Array(4).fill(i * 10 + j));
-        }
+function getTiles(honors = true) {
+  let tiles = [];
+  for(let i = 1; i < 4; i ++) {
+    for(let j = 1; j < 10; j++) {
+      tiles = tiles.concat(Array(4).fill(i * 10 + j));
     }
-    for (let i = 0; i < 7; i++) {
-        tiles = tiles.concat(Array(4).fill(40 + 2 * i + 1));
-    }
-    return tiles;
   }
+  if (honors) {
+    for (let i = 0; i < 7; i++) {
+      tiles = tiles.concat(Array(4).fill(40 + 2 * i + 1));
+    }        
+  }
+  return tiles;
+}
   
 const shuffleArray = array => {
     for (let i = array.length - 1; i > 0; i--) {
