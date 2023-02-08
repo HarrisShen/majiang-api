@@ -6,13 +6,12 @@ const Player = gameModel.Player;
 
 async function startGame(botType, dealer = -1) {
   const payload = {};
-  const rules = require('./rules.json');
   const players = botType.map(b => new Player([], [], [], b));
   if (dealer === -1) {
     dealer = Math.floor(Math.random() * 4); // choose dealer (first to play) randomly
   }
   const mjGame = new MahjongGame([], players, dealer);
-  mjGame.start(rules.tiles);
+  mjGame.start();
   if(mjGame.checkActions()) mjGame.status = 2;
   payload.gameState = mjGame.toJSON();
   payload.gameID = await mjGame.dumpToRedis(gameClient);

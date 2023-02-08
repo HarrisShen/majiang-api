@@ -5,6 +5,8 @@ const {
 } = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
+const rules = require('./rules.json');
+
 const initAction = (initCallback = () => false) => ({
     pong: initCallback(),
     kong: initCallback(),
@@ -26,6 +28,7 @@ class MahjongGame {
         this.waitingFor = waitingFor;
         this.actionList = actionList === null ? initAction(() => []) : actionList; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
         this.lastAction = lastAction;
+        this.rules = rules;
     }
 
     toJSON() {
@@ -184,8 +187,8 @@ class MahjongGame {
         if(this.checkActions()) this.status = 2;
     }
 
-    start(tileConfig) {
-        this.tiles = getTiles(tileConfig.honor);
+    start() {
+        this.tiles = getTiles(this.rules.tiles.honor);
         shuffleArray(this.tiles);
         while(this.getHandSize(this.currPlayer) < 14){
             this.drawTile();
@@ -258,10 +261,12 @@ class MahjongGame {
                 playerActions[kongPlayer]['kong'] = true;
             }
 
-            const [chowPlayer, chowType] = this.checkChow(discardTile);
-            if (chowType.length > 0) {
-                // send the start of the chow tiles to the client
-                playerActions[chowPlayer]['chow'] = chowType.map(ct => discardTile - ct);
+            if (this.rules.chow) {
+                const [chowPlayer, chowType] = this.checkChow(discardTile);
+                if (chowType.length > 0) {
+                    // send the start of the chow tiles to the client
+                    playerActions[chowPlayer]['chow'] = chowType.map(ct => discardTile - ct);
+                }                
             }
         }
         for(let i = 0; i < 4; i++) {
