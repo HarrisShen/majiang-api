@@ -1,11 +1,5 @@
-const initAction = (initCallback = () => false) => ({
-  pong: initCallback(),
-  kong: initCallback(),
-  chow: initCallback(),
-  hu: initCallback(),
-});
-
 const MahjongGame = require('./MahjongGame');
+const initAction = require('./initAction');
 
 class SichuanMahjongGame extends MahjongGame {
   checkActions(tile = null) {

@@ -12,6 +12,19 @@ class Player {
         this.bot = bot;
     }
 
+    toJSON() {
+        return {
+            hand: this.hand,
+            waste: this.waste,
+            show: this.show,
+            bot: this.bot,
+        };
+    }
+
+    static fromJSON(json) {
+        return new Player(json.hand, json.waste, json.show, json.bot);
+    }
+    
     isBot() {
         return this.bot !== 'no';
     }

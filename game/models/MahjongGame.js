@@ -7,13 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 // const rules = require('./rules.json');
 
-const initAction = (initCallback = () => false) => ({
-    pong: initCallback(),
-    kong: initCallback(),
-    chow: initCallback(),
-    hu: initCallback(),
-});
-
+const initAction = require('./initAction');
 const Player = require('./Player');
 
 class MahjongGame {
@@ -40,9 +34,7 @@ class MahjongGame {
     toJSON() {
         return {
             tiles: this.tiles,
-            playerHands: this.getPlayerHands(),
-            playerWaste: this.getPlayerWaste(),
-            playerShows: this.getPlayerShows(),
+            players: this.players.map((player) => player.toJSON()),
             currPlayer: this.currPlayer,
             playerActions: this.playerActions,
             lastAction: this.lastAction,
@@ -115,22 +107,7 @@ class MahjongGame {
         if(!client.isOpen) await client.connect();
         if(gameID === null) gameID = uuidv4();
         const gamePrefix = 'game:' + gameID;
-        await client.set(gamePrefix + ':tiles', this.tiles.join(','));
-        await client.set(gamePrefix + ':currPlayer', this.currPlayer);
-        await client.set(gamePrefix + ':status', this.status);
-        await client.set(gamePrefix + ':winner', this.winner.join());
-        await client.set(gamePrefix + ':playerActions', JSON.stringify(this.playerActions));
-        await client.set(gamePrefix + ':waitingFor', JSON.stringify(this.waitingFor));
-        await client.set(gamePrefix + ':actionList', JSON.stringify(this.actionList));
-        await client.set(gamePrefix + ':lastAction', this.lastAction);
-        let playerPrefix;
-        for(let i = 0; i < 4; i++) {
-            playerPrefix = gamePrefix + ':players:' + i;
-            await client.set(playerPrefix + ':hand', this.players[i].hand.join(','));
-            await client.set(playerPrefix + ':waste', this.players[i].waste.join(','));
-            await client.set(playerPrefix + ':show', this.players[i].show.join(','));
-            await client.set(playerPrefix + ':bot', this.players[i].bot);
-        }
+        await client.set(gamePrefix, JSON.stringify(this.toJSON()));
         return gameID;
     }
 
@@ -138,37 +115,18 @@ class MahjongGame {
         if(!client.isOpen)
             await client.connect();
         const gamePrefix = 'game:' + gameID;
-        let tiles = await client.get(gamePrefix + ':tiles');
-        tiles = (tiles !== '' ? tiles.split(',') : []);
-        const currPlayer = await client.get(gamePrefix + ':currPlayer');
-        const status = await client.get(gamePrefix + ':status');
-        let winner = await client.get(gamePrefix + ':winner');
-        winner = (winner !== '' ? winner.split(',') : []);
-        const playerActions = await client.get(gamePrefix + ':playerActions');
-        const waitingFor = await client.get(gamePrefix + ':waitingFor');
-        const actionList = await client.get(gamePrefix + ':actionList');
-        const lastAction = await client.get(gamePrefix + ':lastAction');
-        let playerPrefix, playerTiles, bot;
-        const players = [];
-        for(let i = 0; i < 4; i++) {
-            playerTiles = [];
-            playerPrefix = gamePrefix + ':players:' + i;
-            playerTiles.push(
-                await client.get(playerPrefix + ':hand')
-                    .then((s) => s !== '' ? s.split(',') : []));
-            playerTiles.push(
-                await client.get(playerPrefix + ':waste')
-                    .then((s) => s !== '' ? s.split(',') : []));
-            playerTiles.push(
-                await client.get(playerPrefix + ':show')
-                    .then((s) => s !== '' ? s.split(',') : []));
-            bot = await client.get(playerPrefix + ':bot');
-            players.push(new Player( ...playerTiles, bot ));
-        }
+        let gameData = await client.get(gamePrefix);
+        gameData = JSON.parse(gameData);
         return new this.prototype.constructor(
-            tiles.map(t => parseInt(t)), players, parseInt(currPlayer),
-            parseInt(status), winner, JSON.parse(playerActions), 
-            JSON.parse(waitingFor), JSON.parse(actionList), lastAction
+            gameData.tiles.map(t => parseInt(t)),
+            gameData.players.map((player) => Player.fromJSON(player)),
+            parseInt(gameData.currPlayer),
+            parseInt(gameData.status), 
+            gameData.winner, 
+            gameData.playerActions, 
+            gameData.waitingFor,
+            gameData.actionList, 
+            gameData.lastAction
         );
     }
 
@@ -378,10 +336,5 @@ class MahjongGame {
         return this.players[pid].makeDecision(pid, this.playerActions[pid]);
     }
 }
-
-// module.exports = {
-//     MahjongGame: MahjongGame,
-//     Player: Player,
-// };
 
 module.exports = MahjongGame;

@@ -11,9 +11,9 @@ function cleanPayload(payload, playerID, players) {
     let handLength;
     for (let i = 0; i < 4; i++) {
       if (i === idx) continue;
-      handLength = gameState.playerHands[i].length;
-      gameState.playerHands[i] = Array(handLength).fill(0);
-    } 
+      handLength = gameState.players[i].hand.length;
+      gameState.players[i].hand = Array(handLength).fill(0);
+    }
   }
   newPayload.gameState = gameState;
   return newPayload;
