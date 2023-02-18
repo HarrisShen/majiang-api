@@ -5,7 +5,7 @@ const {
 } = require('./gameUtils');
 const { v4: uuidv4 } = require('uuid');
 
-const rules = require('./rules.json');
+// const rules = require('./rules.json');
 
 const initAction = (initCallback = () => false) => ({
     pong: initCallback(),
@@ -17,18 +17,22 @@ const initAction = (initCallback = () => false) => ({
 class MahjongGame {
     constructor(
         tiles, players, currPlayer = 0, status = 0, winner = [],
-        playerActions = [], waitingFor = [], actionList = null, lastAction = ''
+        playerActions = null, waitingFor = [], actionList = null, lastAction = ''
     ) {
         this.tiles = tiles.map((t) => parseInt(t));
         this.players = players;
         this.currPlayer = currPlayer; // by setting this at beginning, dealer/banker can be effectively set
         this.status = status; // 0 - ready/over, 1 - playing/to discard, 2 - diciding, no playing tiles
         this.winner = winner;
-        this.playerActions = playerActions;
+        if (playerActions === null) {
+            playerActions = [];
+            for(let i = 0; i < 4; i++)
+                playerActions.push(initAction());
+        }
+        this.playerActions =  playerActions;
         this.waitingFor = waitingFor;
         this.actionList = actionList === null ? initAction(() => []) : actionList; // three tier of actions, 0 - win, 1 - pong/kong, 2 - chow
         this.lastAction = lastAction;
-        this.rules = rules;
     }
 
     toJSON() {
@@ -188,7 +192,7 @@ class MahjongGame {
     }
 
     start() {
-        this.tiles = getTiles(this.rules.tiles.honor);
+        this.tiles = getTiles(false);
         shuffleArray(this.tiles);
         while(this.getHandSize(this.currPlayer) < 14){
             this.drawTile();
@@ -205,76 +209,65 @@ class MahjongGame {
 
     checkChuck(tile) {
         // Dian Pao/Fang Pao
-        return [0, 1, 2, 3].filter((i) => (
-            i !== this.currPlayer && this.players[i].checkHuPai(tile)
+        [0, 1, 2, 3].forEach((i) => (
+            this.playerActions[i]['hu'] = (i !== this.currPlayer 
+                && this.players[i].checkHuPai(tile))
         ));
     }
 
     checkPong(tile) {
         for(let i = 0; i < 4; i++) {
             if(i !== this.currPlayer && this.players[i].checkPong(tile)) 
-                return i;
+                this.playerActions[i]['pong'] = true;
         }
-        return -1;
     }
 
     checkKong(tile) {
         for(let i = 0; i < 4; i++) {
             if(i !== this.currPlayer && this.players[i].checkKong(tile))
-                return i;
+                this.playerActions[i]['kong'] = true;
         }
-        return -1;
     }
 
     checkChow(tile) {
         const nextP = (this.currPlayer + 1) % 4;
-        return [nextP, this.players[nextP].checkChow(tile)];
+        const chowType = this.players[nextP].checkChow(tile);
+        if(chowType.length > 0) {
+            this.playerActions[nextP]['chow'] = chowType.map(
+                ct => tile - ct
+            );
+        }
+    }
+
+    checkSelf() {
+        this.playerActions[this.currPlayer] = {
+            pong: false,
+            kong: this.tiles.length > 0 && this.players[this.currPlayer].checkKong(),
+            chow: false,
+            hu: this.players[this.currPlayer].checkHuPai()
+        };
+        if (this.playerActions[this.currPlayer]['kong']) {
+            this.playerActions[this.currPlayer]['kong'] = getKongTile(this.getPlayerHand());
+        }
     }
 
     checkActions(tile = null) {
-        const playerActions = [];
         for(let i = 0; i < 4; i++)
-          playerActions.push(initAction());
+          this.playerActions[i] = initAction();
         if(tile === null) {
-            playerActions[this.currPlayer] = {
-                pong: false,
-                kong: this.tiles.length > 0 && this.players[this.currPlayer].checkKong(),
-                chow: false,
-                hu: this.players[this.currPlayer].checkHuPai()
-            };
-            if (playerActions[this.currPlayer]['kong']) {
-                playerActions[this.currPlayer]['kong'] = getKongTile(this.getPlayerHand());
-            }
+            this.checkSelf();
         } else {
             const discardTile = this.players[this.currPlayer].waste.at(-1);
-            const huPlayer = this.checkChuck(discardTile);
-            huPlayer.forEach((i) => {
-                playerActions[i]['hu'] = true;
-            });
-
-            const pongPlayer = this.checkPong(discardTile);
-            const kongPlayer = this.checkKong(discardTile);
-            if (pongPlayer !== -1) {
-                playerActions[pongPlayer]['pong'] = true;
-            }
-            if (kongPlayer !== -1) {
-                playerActions[kongPlayer]['kong'] = true;
-            }
-
-            if (this.rules.chow) {
-                const [chowPlayer, chowType] = this.checkChow(discardTile);
-                if (chowType.length > 0) {
-                    // send the start of the chow tiles to the client
-                    playerActions[chowPlayer]['chow'] = chowType.map(ct => discardTile - ct);
-                }                
-            }
+            this.checkChuck(discardTile);
+            this.checkPong(discardTile);
+            this.checkKong(discardTile);
+            this.checkChow(discardTile);     
         }
         for(let i = 0; i < 4; i++) {
-            if (Object.values(playerActions[i]).some(x => x)) {
+            if (Object.values(this.playerActions[i]).some(x => x)) {
                 this.waitingFor.push(i);
             }
         }
-        this.playerActions = playerActions;
         return this.waitingFor.length > 0;
     }
 

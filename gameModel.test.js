@@ -30,6 +30,24 @@ test('No self Pong'), (t) => {
   assert(!mjGame.playerActions[1].pong);
 }
 
+test('Self kong'), (t) => {
+  const tiles = [11, 11, 11];
+  const playerParams = [
+    [[12,12,12,13,13,13,13], [16,16,16,16], [15,15,15], 'no'],
+    [[19,19,19,31], [], [], 'no'],
+    [[21], [], [], 'no'],
+    [[31], [], [], 'no'],
+  ];
+  const players = [0, 1, 2, 3].map(i => new Player(...playerParams[i]));
+  const mjGame = new MahjongGame(tiles, players, 0, 1);
+  mjGame.checkActions();
+  assert(!mjGame.playerActions[0].kong);
+  assert(mjGame.status === 2);
+  mjGame.applyAction('kong', 0);
+  assert(!mjGame.playerActions[0].kong);
+  assert(mjGame.status !== 2);
+}
+
 test('return Kong test', (t) => {
   const tiles = [11, 11, 11];
   const playerParams = [
