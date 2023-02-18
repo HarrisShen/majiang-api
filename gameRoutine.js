@@ -1,8 +1,9 @@
 const gameClient = require('redis').createClient();
 
-const gameModel = require('./gameModels');
-const MahjongGame = gameModel.MahjongGame;
-const Player = gameModel.Player;
+// const gameModel = require('./game/models/MahjongGame');
+// const MahjongGame = gameModel.MahjongGame;
+const Game = require('./game/models/SichuanMahjong');
+const Player = require('./game/models/Player');
 
 async function startGame(botType, dealer = -1) {
   const payload = {};
@@ -10,7 +11,7 @@ async function startGame(botType, dealer = -1) {
   if (dealer === -1) {
     dealer = Math.floor(Math.random() * 4); // choose dealer (first to play) randomly
   }
-  const mjGame = new MahjongGame([], players, dealer);
+  const mjGame = new Game([], players, dealer);
   mjGame.start();
   if(mjGame.checkActions()) mjGame.status = 2;
   payload.gameState = mjGame.toJSON();
@@ -19,7 +20,7 @@ async function startGame(botType, dealer = -1) {
 }
 
 async function act(gameID, action, pid, tid) {
-  const mjGame = await MahjongGame.loadFromRedis(gameClient, gameID);
+  const mjGame = await Game.loadFromRedis(gameClient, gameID);
   mjGame.applyAction(action, pid, tid);
   console.log(mjGame.currPlayer);
   console.log(mjGame.players[mjGame.currPlayer].hand);
@@ -31,7 +32,7 @@ async function act(gameID, action, pid, tid) {
 }
 
 async function continueGame(gameID) {
-  const mjGame = await MahjongGame.loadFromRedis(gameClient, gameID);
+  const mjGame = await Game.loadFromRedis(gameClient, gameID);
   let needAct = mjGame.getPlayerToAct();
   for (i of needAct) {
     if (i === -1) break;

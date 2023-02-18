@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { MahjongGame, Player } = require('./gameModels');
+const MahjongGame = require('../game/models/MahjongGame');
+const Player = require('../game/models/Player');
 
 function arrayEquals(a, b) {
   return Array.isArray(a) &&
