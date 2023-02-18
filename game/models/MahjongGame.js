@@ -12,7 +12,7 @@ const Player = require('./Player');
 
 class MahjongGame {
     constructor(
-        tiles, players, currPlayer = 0, status = 0, winner = [],
+        tiles = [], players = [], currPlayer = 0, status = 0, winner = [],
         playerActions = null, waitingFor = [], actionList = null, lastAction = ''
     ) {
         this.tiles = tiles.map((t) => parseInt(t));
@@ -117,17 +117,8 @@ class MahjongGame {
         const gamePrefix = 'game:' + gameID;
         let gameData = await client.get(gamePrefix);
         gameData = JSON.parse(gameData);
-        return new this.prototype.constructor(
-            gameData.tiles.map(t => parseInt(t)),
-            gameData.players.map((player) => Player.fromJSON(player)),
-            parseInt(gameData.currPlayer),
-            parseInt(gameData.status), 
-            gameData.winner, 
-            gameData.playerActions, 
-            gameData.waitingFor,
-            gameData.actionList, 
-            gameData.lastAction
-        );
+        gameData.players = gameData.players.map((player) => Player.fromJSON(player));
+        return Object.assign(new this.prototype.constructor(), gameData);
     }
 
     nextPlayer() {
