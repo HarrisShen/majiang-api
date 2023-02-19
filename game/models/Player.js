@@ -24,7 +24,7 @@ class Player {
     static fromJSON(json) {
         return new Player(json.hand, json.waste, json.show, json.bot);
     }
-    
+
     isBot() {
         return this.bot !== 'no';
     }
@@ -87,7 +87,7 @@ class Player {
         return haveChow(this.hand, tile);
     }
 
-    makeDecision(pid, playerAction) {
+    makeDecision(pid, playerAction, status) {
         if(!this.isBot()) {
             throw new Error('non-bot player ', pid, ' selected');
         }
@@ -103,7 +103,10 @@ class Player {
         if(playerAction['chow']) {
             return ['chow', pid, null];
         }
-        return ['discard', pid, Math.floor(Math.random() * this.hand.length)];
+        if (status === 1) {
+            return ['discard', pid, Math.floor(Math.random() * this.hand.length)];
+        }
+        return ['forbid', pid, Math.floor(Math.random() * 3) + 1];
     }
 }
 

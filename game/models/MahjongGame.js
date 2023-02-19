@@ -324,7 +324,7 @@ class MahjongGame {
     }
 
     makeDecision(pid) {
-        return this.players[pid].makeDecision(pid, this.playerActions[pid]);
+        return this.players[pid].makeDecision(pid, this.playerActions[pid], this.status);
     }
 }
 
