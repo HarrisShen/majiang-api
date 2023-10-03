@@ -64,7 +64,7 @@ module.exports = (io, socket, redisMng) => {
       playerReady: playerReady,
     };
     io.to(tableID).emit('table:update', payload);
-    socket.emit('table:update', payload);
+    // socket.emit('table:update', payload);
   });
 
   socket.on('game:action', async (action, pid, tid) => {
