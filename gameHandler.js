@@ -60,7 +60,7 @@ module.exports = (io, socket, redisMng) => {
       ));
     }
     payload = {
-      source: 'ready',
+      source: 'reset-ready',
       playerReady: playerReady,
     };
     io.to(tableID).emit('table:update', payload);
